@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# 指定したリモートホスト・パスをエディタのRemote Development機能で開く。
+# Usage: open-project <ssh-host> <path> [editor]
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+host="${1:?usage: open-project <ssh-host> <path> [editor]}"
+path="${2:?usage: open-project <ssh-host> <path> [editor]}"
+editor="${3:-${DEFAULT_EDITOR:-zed}}"
+
+log "opening $host:$path with $editor"
+
+case "$editor" in
+  zed)
+    # NOTE: ZedのRemote Development URIの仕様はバージョンにより変わる可能性がある。
+    # 実際に使用しているZedのバージョンで `zed ssh://<host><path>` の挙動を確認すること。
+    exec zed "ssh://${host}${path}"
+    ;;
+  *)
+    err "unsupported editor: $editor"
+    exit 1
+    ;;
+esac

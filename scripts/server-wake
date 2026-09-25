@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Raspberry Pi経由でDevelopment ServerへWake-on-LANのMagic Packetを送信する。
+# Usage: server-wake
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+load_local_env
+
+: "${RASPI_HOST:?RASPI_HOST is not set (see ~/.config/dev/local.env)}"
+: "${DEV_SERVER_MAC:?DEV_SERVER_MAC is not set (see ~/.config/dev/local.env)}"
+
+log "waking development server via $RASPI_HOST ..."
+ssh -o ConnectTimeout=5 "$RASPI_HOST" "dev-server-wake '$DEV_SERVER_MAC'"

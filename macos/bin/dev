@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# dev - Development Serverの状態確認・Wake・Remote Environment起動・
+#       Zed Remote Developmentでのプロジェクトオープンを自動化するlauncher。
+#
+# Usage: dev <target>
+#   target一覧は config/projects.conf を参照。
+set -euo pipefail
+
+resolve_repo_root() {
+  local src="${BASH_SOURCE[0]}"
+  while [ -h "$src" ]; do
+    local dir
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")/../.." && pwd
+}
+
+REPO_ROOT="$(resolve_repo_root)"
+# shellcheck source=../../scripts/lib.sh
+source "$REPO_ROOT/scripts/lib.sh"
+
+usage() {
+  cat <<EOF
+Usage: dev <target>
+
+Targets are defined in: $REPO_ROOT/config/projects.conf
+EOF
+}
+
+target="${1:-}"
+if [ -z "$target" ]; then
+  usage
+  exit 1
+fi
+
+load_local_env
+
+if ! IFS=' ' read -r remote_host remote_path instance < <(lookup_target "$target"); then
+  err "unknown target: $target"
+  exit 1
+fi
+
+: "${DEV_SERVER_HOST:?DEV_SERVER_HOST is not set (see ~/.config/dev/local.env)}"
+
+WAIT_TIMEOUT="${DEV_SERVER_WAIT_TIMEOUT:-180}"
+POLL_INTERVAL=5
+
+log "checking development server ($DEV_SERVER_HOST) ..."
+if ! "$REPO_ROOT/scripts/server-status" "$DEV_SERVER_HOST" 3; then
+  log "development server unreachable, requesting wake-on-LAN"
+  "$REPO_ROOT/scripts/server-wake"
+
+  log "waiting for development server to come up (timeout: ${WAIT_TIMEOUT}s)"
+  elapsed=0
+  until "$REPO_ROOT/scripts/server-status" "$DEV_SERVER_HOST" 3; do
+    if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then
+      err "development server did not come up within ${WAIT_TIMEOUT}s"
+      exit 1
+    fi
+    sleep "$POLL_INTERVAL"
+    elapsed=$((elapsed + POLL_INTERVAL))
+  done
+fi
+log "development server is up"
+
+if [ -n "$instance" ] && [ "$instance" != "-" ]; then
+  "$REPO_ROOT/scripts/remote-start" "$DEV_SERVER_HOST" "$instance"
+fi
+
+log "checking target host ($remote_host) ..."
+if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
+  err "cannot reach target host: $remote_host"
+  exit 1
+fi
+
+"$REPO_ROOT/scripts/open-project" "$remote_host" "$remote_path"

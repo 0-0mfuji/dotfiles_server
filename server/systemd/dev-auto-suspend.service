@@ -1,0 +1,6 @@
+[Unit]
+Description=Idle time based auto-suspend for the development server
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dev-auto-suspend.sh

@@ -1,0 +1,4 @@
+# dotfiles: 開発サーバー関連のシェル拡張
+# ~/.zshrc から source される (install.sh が自動で読み込み設定を追記する)
+
+export PATH="$HOME/.local/bin:$PATH"

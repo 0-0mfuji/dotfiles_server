@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Development Server上のIncus Instanceの状態を確認し、停止中なら起動する。
+# Instance定義そのもの(作成/更新/削除)はこのリポジトリの責務外。
+# Usage: remote-start <dev-server-ssh-host> <instance-name>
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+server_host="${1:?usage: remote-start <dev-server-ssh-host> <instance-name>}"
+instance="${2:?usage: remote-start <dev-server-ssh-host> <instance-name>}"
+
+status="$(ssh -o ConnectTimeout=5 "$server_host" "incus list \"$instance\" --format csv -c s" 2>/dev/null || true)"
+
+if [ -z "$status" ]; then
+  err "instance '$instance' not found on $server_host"
+  exit 1
+fi
+
+if [ "$status" != "RUNNING" ]; then
+  log "starting incus instance: $instance"
+  ssh "$server_host" "incus start \"$instance\""
+
+  for _ in $(seq 1 30); do
+    status="$(ssh "$server_host" "incus list \"$instance\" --format csv -c s" 2>/dev/null || true)"
+    [ "$status" = "RUNNING" ] && break
+    sleep 2
+  done
+fi
+
+if [ "$status" != "RUNNING" ]; then
+  err "instance '$instance' did not reach RUNNING state"
+  exit 1
+fi
+
+log "instance '$instance' is running"

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Development Serverへ Wake-on-LAN の Magic Packet を送信する。
+# 管理用1GbE NIC宛に送ること (10GbE NICはWoL用途に使わない)。
+# Usage: dev-server-wake <mac-address>
+set -euo pipefail
+
+mac="${1:?usage: dev-server-wake <mac-address>}"
+
+if command -v wakeonlan >/dev/null 2>&1; then
+  wakeonlan "$mac"
+elif command -v etherwake >/dev/null 2>&1; then
+  sudo etherwake "$mac"
+else
+  echo "wakeonlan (or etherwake) not found; install one of them on this Raspberry Pi" >&2
+  exit 1
+fi

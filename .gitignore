@@ -1,0 +1,11 @@
+.config/dev/local.env
+local.env
+*.secret
+*.key
+credentials/
+private/
+.DS_Store
+
+# 別リポジトリ (Infrastructure repository) がこの下にcloneされている場合、
+# 誤ってこちらのリポジトリへ取り込まないようにする
+dotfile_infra/

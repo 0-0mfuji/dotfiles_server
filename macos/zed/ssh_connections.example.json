@@ -1,0 +1,15 @@
+// これはテンプレートであり、Zedにそのまま読み込まれるファイルではない。
+// 内容を確認した上で、必要な部分だけ ~/.config/zed/settings.json の
+// "ssh_connections" にマージすること。実際のHost名はここに書かず、
+// ~/.ssh/config.local で定義した論理名 (dev-server, os-dev 等) を使う。
+//
+// NOTE: Remote DevelopmentのUI/設定キーはZedのバージョンによって変わることがある。
+// 使用中のZedのドキュメントで最新の形式を確認すること。
+{
+  "ssh_connections": [
+    {
+      "host": "os-dev",
+      "projects": [{ "paths": ["~/src/os"] }]
+    }
+  ]
+}

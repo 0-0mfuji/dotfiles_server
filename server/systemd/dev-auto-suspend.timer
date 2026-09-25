@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically check idle state for auto-suspend
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2min
+Unit=dev-auto-suspend.service
+
+[Install]
+WantedBy=timers.target

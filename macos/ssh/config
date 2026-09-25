@@ -1,0 +1,24 @@
+# dotfiles: 共通SSHオプション
+#
+# 実際のHost名・IP・ProxyJump・User等はマシン固有かつ機密情報を含みうるため
+# このファイルには含めない。~/.ssh/config.local (Git管理外) に定義すること。
+#
+#   例) ~/.ssh/config.local
+#   Host dev-server
+#       HostName 100.x.x.x        # Tailscale IP / MagicDNS name
+#       User youruser
+#
+#   Host lang-dev cpu-dev os-dev fpga-dev robot-dev flutter-dev video-linux
+#       ProxyJump dev-server
+#       HostName localhost        # Incus instanceへの接続方法に応じて調整
+#
+# install.sh が ~/.ssh/config の先頭に以下を追記する:
+#   Include ~/.ssh/config.d/dotfiles
+#   Include ~/.ssh/config.local
+
+Host *
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    ControlMaster auto
+    ControlPath ~/.ssh/sockets/%r@%h-%p
+    ControlPersist 10m

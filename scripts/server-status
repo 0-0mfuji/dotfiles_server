@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# 指定したSSH Hostに接続可能かどうかを確認する。
+# Usage: server-status <ssh-host> [timeout-seconds]
+set -uo pipefail
+
+host="${1:?usage: server-status <ssh-host> [timeout-seconds]}"
+timeout="${2:-5}"
+
+ssh -o ConnectTimeout="$timeout" \
+    -o BatchMode=yes \
+    -o StrictHostKeyChecking=accept-new \
+    "$host" true 2>/dev/null
