@@ -46,12 +46,21 @@ fi
 
 # Include はマッチした時点でそれ以降のHost定義に影響するため先頭に置く
 SSHCONFIG="$HOME/.ssh/config"
+if [ -L "$SSHCONFIG" ]; then
+  # 別のdotfilesが管理するシンボリックリンクを壊さないよう、自動編集しない
+  if ! grep -qF "Include ~/.ssh/config.d/dotfiles" "$SSHCONFIG"; then
+    echo "note: $SSHCONFIG is a symlink ($(readlink "$SSHCONFIG")); add these lines at its top yourself:"
+    echo "  Include ~/.ssh/config.d/dotfiles"
+    echo "  Include ~/.ssh/config.local"
+  fi
+else
 touch "$SSHCONFIG"
 chmod 600 "$SSHCONFIG"
 if ! grep -qF "Include ~/.ssh/config.d/dotfiles" "$SSHCONFIG"; then
   { echo "Include ~/.ssh/config.d/dotfiles"; echo "Include ~/.ssh/config.local"; cat "$SSHCONFIG"; } > "$SSHCONFIG.tmp"
   mv "$SSHCONFIG.tmp" "$SSHCONFIG"
   echo "updated: $SSHCONFIG (added Include)"
+fi
 fi
 
 mkdir -p "$HOME/.config/dev"

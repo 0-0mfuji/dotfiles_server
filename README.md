@@ -76,6 +76,9 @@ Server上で実行する(MacBookには何も入れない)。
 git clone git@github.com:0-0mfuji/dotfile_infra.git
 cd dotfile_infra
 
+# ホスト構築 (SSH/WoL/ZFS/Incus導入、ディスク初期化)。詳細は host/README.md
+sudo ./host/setup.sh
+
 ./install.sh   # OpenTofu CLIが未導入の場合のみ
 
 cp terraform.tfvars.example terraform.tfvars
