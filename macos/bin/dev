@@ -37,7 +37,7 @@ fi
 
 load_local_env
 
-if ! IFS=' ' read -r remote_host remote_path instance < <(lookup_target "$target"); then
+if ! IFS=' ' read -r remote_host remote_path instance repo < <(lookup_target "$target"); then
   err "unknown target: $target"
   exit 1
 fi
@@ -73,6 +73,10 @@ log "checking target host ($remote_host) ..."
 if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
   err "cannot reach target host: $remote_host"
   exit 1
+fi
+
+if [ -n "$repo" ] && [ "$repo" != "-" ]; then
+  "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "$repo"
 fi
 
 "$REPO_ROOT/scripts/open-project" "$remote_host" "$remote_path"

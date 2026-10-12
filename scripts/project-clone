@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# リモートにプロジェクトが無ければ git clone する。
+# Macのsshエージェントを転送して認証するので、privateリポジトリでも秘密鍵をリモートに置かない。
+# Usage: project-clone <ssh-host> <path> <repo-url>
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+host="${1:?usage: project-clone <ssh-host> <path> <repo-url>}"
+path="${2:?usage: project-clone <ssh-host> <path> <repo-url>}"
+repo="${3:?usage: project-clone <ssh-host> <path> <repo-url>}"
+
+if ! ssh-add -l >/dev/null 2>&1; then
+  err "ssh-agent has no identities; private clone will fail (run: ssh-add ~/.ssh/<key>)"
+fi
+
+# path/repoは設定ファイル由来。~はリモートシェルに展開させる
+if ssh -A -o BatchMode=yes "$host" "p=$path; [ -d \"\$p/.git\" ]"; then
+  log "project already present: $host:$path"
+  exit 0
+fi
+
+log "cloning $repo -> $host:$path"
+ssh -A -o BatchMode=yes "$host" \
+  "p=$path; mkdir -p \"\$(dirname \"\$p\")\" && GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new' git clone '$repo' \"\$p\""

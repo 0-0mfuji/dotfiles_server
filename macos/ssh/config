@@ -8,15 +8,20 @@
 #       HostName 100.x.x.x        # Tailscale IP / MagicDNS name
 #       User youruser
 #
-#   Host lang-dev cpu-dev os-dev fpga-dev robot-dev flutter-dev video-linux
+#   Host os-dev
+#       HostName 10.10.0.13       # dotfile_infra の terraform.tfvars の ip
+#       User dev
 #       ProxyJump dev-server
-#       HostName localhost        # Incus instanceへの接続方法に応じて調整
 #
-# install.sh が ~/.ssh/config の先頭に以下を追記する:
+# ~/.ssh/config の先頭に以下が必要 (install.sh が追記する。
+# ~/.ssh/config がシンボリックリンクの場合は自動編集しないので、手動で足す):
 #   Include ~/.ssh/config.d/dotfiles
 #   Include ~/.ssh/config.local
 
 Host *
+    AddKeysToAgent yes
+    UseKeychain yes
+    IgnoreUnknown UseKeychain
     ServerAliveInterval 30
     ServerAliveCountMax 3
     ControlMaster auto

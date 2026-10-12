@@ -11,6 +11,9 @@ host="${1:?usage: open-project <ssh-host> <path> [editor]}"
 path="${2:?usage: open-project <ssh-host> <path> [editor]}"
 editor="${3:-${DEFAULT_EDITOR:-zed}}"
 
+# `~` を含むパスはリモート側で絶対パスに解決する (Zedのssh URIは絶対パスが必要)
+path="$(ssh -o BatchMode=yes "$host" "cd $path && pwd")" || { err "path not found on $host: $path"; exit 1; }
+
 log "opening $host:$path with $editor"
 
 case "$editor" in

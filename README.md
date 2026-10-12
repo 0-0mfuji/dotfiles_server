@@ -22,7 +22,7 @@ macos/     MacBook側の設定 (zsh, ssh, zed, devコマンド本体)
 server/    Development Server側の共通設定・自動Suspend
 raspi/     Raspberry Pi用のWake-on-LANゲートウェイ
 config/    dev コマンドのtarget定義・環境変数テンプレート
-scripts/   dev コマンドが呼び出す個々の処理 (状態確認/Wake/Instance起動/Editor起動)
+scripts/   dev コマンドが呼び出す個々の処理 (状態確認/Wake/Instance起動/clone/Editor起動)
 ```
 
 Incus環境そのもの(instance定義・profile・provisioning等)はこのリポジトリの
@@ -37,13 +37,33 @@ Incus環境そのもの(instance定義・profile・provisioning等)はこのリ�
 ./install.sh macos
 ```
 
-シンボリックリンクを張るだけで、既存ファイルは上書きしない。その後、以下の
-2ファイルを編集する(どちらもGit管理外):
+シンボリックリンクを張るだけで、既存ファイルは上書きしない。`~/.ssh/config` が
+シンボリックリンクの場合は自動編集せず、追記すべき2行(`Include ~/.ssh/config.d/dotfiles`
+と `Include ~/.ssh/config.local`)を表示するので、手動で先頭に足す。
+
+その後、以下の2ファイルを編集する(どちらもGit管理外):
 
 | ファイル | 内容 |
 | --- | --- |
 | `~/.ssh/config.local` | 実際のHost定義 (IP, ProxyJump, User等) |
 | `~/.config/dev/local.env` | `DEV_SERVER_HOST` / `DEV_SERVER_MAC` / `RASPI_HOST` |
+
+`~/.ssh/config.local` の例 (コンテナはDevelopment Server経由で入る):
+
+```
+Host dev-server
+    HostName 100.x.x.x            # Tailscale IP (自宅内でも外出先でも同じ)
+    User <user>
+    IdentityFile ~/.ssh/<key>
+    IdentitiesOnly yes
+
+Host os-dev
+    HostName 10.10.0.13           # dotfile_infra の terraform.tfvars の ip と合わせる
+    User dev
+    ProxyJump dev-server
+    IdentityFile ~/.ssh/<key>
+    IdentitiesOnly yes
+```
 
 ### Development Server (Debian)
 
@@ -76,14 +96,16 @@ Server上で実行する(MacBookには何も入れない)。
 git clone git@github.com:0-0mfuji/dotfile_infra.git
 cd dotfile_infra
 
-# ホスト構築 (SSH/WoL/ZFS/Incus導入、ディスク初期化)。詳細は host/README.md
-sudo ./host/setup.sh
+# 1. ホスト構築 (SSH/WoL/ZFS/Incus導入、ディスク初期化)。手順は host/README.md
+cd host
+sudo ./setup.sh
+sudo ./storage-init /dev/disk/by-id/<disk-id>   # ディスクを消す。対象を確認して実行
+cd ..
 
+# 2. Instanceの作成
 ./install.sh   # OpenTofu CLIが未導入の場合のみ
-
 cp terraform.tfvars.example terraform.tfvars
-$EDITOR terraform.tfvars   # storage_pool / dev_network / ssh_public_key / dev_instances
-
+$EDITOR terraform.tfvars   # 項目は dotfile_infra のREADME参照
 tofu init
 tofu apply
 ```
@@ -105,8 +127,21 @@ dev cpu
 dev flutter
 ```
 
+`dev <target>` は次を順に行い、Zed Remote Developmentで開く。
+
+1. Development Serverに接続できなければ、Raspberry Pi経由でWake-on-LAN
+2. SSHが通るまで待つ
+3. `projects.conf` にinstance名があれば、停止中のInstanceを起動
+4. `repo` が設定されていて、コンテナ内に `path` が無ければ `git clone`
+   (Macのsshエージェントを転送して認証する。privateでもOK。秘密鍵はコンテナに置かない)
+5. Zedで `path` を開く
+
+**ソースコードはすべてコンテナ内 (`path`) に置き、Macには置かない。**
+Instanceを作り直すと中身は消えるので、重要な変更は必ずGitHubへpushすること。
+
 targetの追加・変更は [config/projects.conf](config/projects.conf) を編集する
-だけでよい。
+だけでよい。1つのtargetに設定できるリポジトリは1つ。複数ある場合は
+別のtargetとして行を足す。
 
 ## 設計原則
 

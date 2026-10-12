@@ -14,8 +14,8 @@ load_local_env() {
   fi
 }
 
-# config/projects.conf から target を検索し "host path instance" を1行で出力する。
-# instance列が無い行は "-" を返す。見つからない場合は何も出力せず終了コード1。
+# config/projects.conf から target を検索し "host path instance repo" を1行で出力する。
+# instance/repo列が無い行は "-" を返す。見つからない場合は何も出力せず終了コード1。
 lookup_target() {
   local target="$1"
   local conf="${DEV_PROJECTS_CONF:-$REPO_ROOT/config/projects.conf}"
@@ -26,7 +26,8 @@ lookup_target() {
     NF == 0 { next }
     $1 == t {
       inst = (NF >= 4) ? $4 : "-"
-      print $2, $3, inst
+      repo = (NF >= 5) ? $5 : "-"
+      print $2, $3, inst, repo
       found = 1
       exit
     }
