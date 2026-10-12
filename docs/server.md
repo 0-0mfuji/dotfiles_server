@@ -30,14 +30,14 @@ cd dotfiles_server
 
 ## 自動Suspend
 
-アイドルが続いたら `systemctl suspend` する (S3)。条件は次の3つがすべて成り立つとき。
+アイドルが続いたら `systemctl suspend` (S3) する。SSH接続が無く、`systemd-inhibit` で
+sleepを止めているジョブも無い状態が `DEV_IDLE_TIMEOUT` 秒 (既定3600) 続くと寝る。
 
-- 確立済みのSSHセッションが無い
-- `systemd-inhibit` でsleepをブロックしているものが無い
-- 最後にアクティブだった時から、`DEV_IDLE_TIMEOUT` 秒 (既定3600) 以上経った
+```sh
+sudo ./server/install-suspend.sh
+```
 
-`sudo` が必要なため、`./install.sh server` が表示するコマンドを手動で実行する。
-詳細と、長時間ジョブからSuspendを止める方法は
+判定の詳細、長時間ジョブからSuspendを止める方法、コンテナ内ジョブの注意は
 [server/systemd/README.md](../server/systemd/README.md)。
 
 > 外出先から起こすには、Raspberry Pi経由のWoLが必要。[raspi.md](raspi.md) を参照。

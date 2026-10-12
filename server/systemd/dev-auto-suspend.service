@@ -3,4 +3,6 @@ Description=Idle time based auto-suspend for the development server
 
 [Service]
 Type=oneshot
+# DEV_IDLE_TIMEOUT=... を書いて既定値(3600秒)を変えられる (無くてもよい)
+EnvironmentFile=-/etc/default/dev-auto-suspend
 ExecStart=/usr/local/bin/dev-auto-suspend.sh

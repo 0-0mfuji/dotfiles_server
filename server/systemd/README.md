@@ -1,31 +1,59 @@
 # dev-auto-suspend
 
-2分ごとに `auto-suspend.sh` を実行し、以下がいずれも成立しない場合にのみ
-`systemctl suspend` する。
+2分ごとに `auto-suspend.sh` を実行し、アイドルが続いたら `systemctl suspend` (S3) する。
 
-- 確立済みのSSHセッションが無い
-- `systemd-inhibit --mode=block` にsleepをブロックしている項目が無い
-- 直近のアクティブ状態からidleTimeout秒(既定60分, `DEV_IDLE_TIMEOUT`)以上経過している
+## 判定
 
-長時間ジョブ側の実装例:
+次の**どちらにも該当せず**、最後にアクティブだった時から `DEV_IDLE_TIMEOUT` 秒
+(既定3600=60分) 以上経っているときだけSuspendする。
+
+| アクティブ条件 | 例 |
+| --- | --- |
+| 確立済みのSSH接続がある | Macからの接続、ZedがProxyJump経由でコンテナに繋いでいる間 |
+| `systemd-inhibit` で sleep を **block** しているものがある | ビルド、レンダー、エンコード、バックアップ |
+
+`delay` 型のロック (NetworkManager等) は無視する。CPU使用率は見ない。
+
+## 導入
 
 ```sh
-systemd-inhibit --what=sleep --mode=block --who="blender-render" \
+sudo ./server/install-suspend.sh
+```
+
+`/usr/local/bin/dev-auto-suspend.sh` とsystemdのunit/timerを入れて、timerを有効にする。
+アイドル時間を変える場合は `/etc/default/dev-auto-suspend` に書いて、`sudo systemctl daemon-reload`:
+
+```
+DEV_IDLE_TIMEOUT=7200
+```
+
+## 動作確認
+
+実際にはSuspendせず、判定だけ見る:
+
+```sh
+DEV_AUTO_SUSPEND_DRY_RUN=1 DEV_AUTO_SUSPEND_STATE=/tmp/x /usr/local/bin/dev-auto-suspend.sh
+journalctl -t dev-auto-suspend       # 実際にSuspendした記録
+systemctl list-timers dev-auto-suspend.timer
+```
+
+## 長時間ジョブからSuspendを止める
+
+サーバー上で、ジョブを `systemd-inhibit` でラップする:
+
+```sh
+systemd-inhibit --what=sleep --mode=block --who=blender-render \
   --why="rendering job in progress" \
   blender -b scene.blend -a
 ```
 
-GPU使用中もSuspendを禁止したい場合は、同様に該当ジョブの起動スクリプトを
-`systemd-inhibit` でラップすること(このリポジトリでは汎用のGPU使用率監視は行わない)。
+**コンテナ内のジョブは、ホストのinhibitorを持てない。** コンテナ内で長時間ジョブを走らせるときは、
+Macからそのコンテナへのssh接続を開いたままにする (`ssh os-dev` + tmux 等)。
+接続が生きている間は、サーバー側でSSH接続として検出される。
 
-## セットアップ
+GPUを使うジョブも同様にラップすること (GPU使用率の自動監視はしない)。
 
-```sh
-sudo install -m 755 ../shell/auto-suspend.sh /usr/local/bin/dev-auto-suspend.sh
-sudo install -m 644 dev-auto-suspend.service /etc/systemd/system/
-sudo install -m 644 dev-auto-suspend.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now dev-auto-suspend.timer
-```
+## 注意
 
-`server/install.sh` を使えば上記をまとめて実行できる。
+- Macで**Zedやsshを開いたままだと、サーバーは寝ない**。閉じてから60分後にSuspendする。
+- 復帰後はアイドルタイマーが仕切り直される。

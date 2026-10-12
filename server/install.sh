@@ -28,11 +28,7 @@ git config --global --get-all include.path 2>/dev/null | grep -qF "dotfiles-serv
   git config --global --add include.path "$HOME/.config/git/dotfiles-server.gitconfig"
 
 echo ""
-echo "auto-suspend (systemd) をインストールするには sudo権限が必要です:"
-echo "  sudo install -m 755 $DIR/shell/auto-suspend.sh /usr/local/bin/dev-auto-suspend.sh"
-echo "  sudo install -m 644 $DIR/systemd/dev-auto-suspend.service /etc/systemd/system/"
-echo "  sudo install -m 644 $DIR/systemd/dev-auto-suspend.timer /etc/systemd/system/"
-echo "  sudo systemctl daemon-reload"
-echo "  sudo systemctl enable --now dev-auto-suspend.timer"
+echo "auto-suspend (systemd) を有効にするには、sudo権限で次を実行してください:"
+echo "  sudo $DIR/install-suspend.sh"
 echo ""
 echo "done."
