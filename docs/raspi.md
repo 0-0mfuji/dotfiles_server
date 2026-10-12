@@ -43,5 +43,9 @@ ssh raspi 'dev-server-wake <DEV_SERVER_MAC>'
 - BIOSで、PCIE/LANからのウェイクアップ (Wake on LAN / PCIE) が有効か確認する。
 - サーバーで `ethtool <iface> | grep Wake-on` が `g` になっているか確認する
   (`wol@<iface>.service` が起動時に設定する)。
+- **Suspendした直後にすぐ起きてしまう**場合は、USBコントローラのウェイクアップが原因のことが多い
+  (キーボード/マウス/USBカードのPME)。`dotfile_infra` の `20-network` が `usb-wake-off.service` で
+  無効にする。確認は `grep . /sys/bus/pci/devices/*/power/wakeup` で、WoLに使う有線NICだけ
+  `enabled`、USBコントローラは `disabled` が正しい。
 - Magic Packetは**管理用1GbE NIC**宛に送る。10GbE NICはWoLに使わない。
 - Piとサーバーが同じLAN (ブロードキャストが届く範囲) にあるか確認する。
