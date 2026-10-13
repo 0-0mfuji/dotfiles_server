@@ -24,8 +24,9 @@ if [ "$code" != 401 ] && [ "$code" != 200 ]; then
   exit 0
 fi
 
-url="$(ssh -o BatchMode=yes "$host" "grep -o 'http://127.0.0.1:$remote_port/?token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)"
-if [ -z "$url" ]; then err "Web UIのURLを取得できません ($host の ~/.dsh/web.log)"; exit 0; fi
+# ログに出るURLの形は設定で変わる (--public-url があると公開URLになる) ので、トークンだけを取り出す
+token="$(ssh -o BatchMode=yes "$host" "grep -o 'token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)"
+if [ -z "$token" ]; then err "Web UIのトークンを取得できません ($host の ~/.dsh/web.log)"; exit 0; fi
 
 # 既存のトンネル (同じホスト宛て・生存中) があれば再利用する
 port=""
@@ -47,7 +48,7 @@ if [ -z "$port" ]; then
   log "Web UIのトンネル: localhost:$port -> $host:$remote_port (${ttl}秒で自動的に閉じます)"
 fi
 
-url="${url/127.0.0.1:$remote_port/127.0.0.1:$port}"
+url="http://127.0.0.1:${port}/?${token}"
 log "Web UIを開きます"
 if command -v open >/dev/null 2>&1; then open "$url"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url"; else echo "$url"; fi
 exit 0

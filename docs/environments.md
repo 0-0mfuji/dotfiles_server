@@ -8,6 +8,7 @@
 
 - [作り方](#作り方)
 - [コンテナの中身を整える (provision)](#コンテナの中身を整える-provision)
+- [スマホ用の設定 (Tailnet)](#スマホ用の設定-tailnet)
 - [コンテナを足す・変える](#コンテナを足す変える)
 - [注意事項](#注意事項)
 
@@ -65,6 +66,48 @@ DeepSeek Harness は開発者プレビューで、互換性が壊れる変更が
 GIT_USER_NAME="Your Name"
 GIT_USER_EMAIL="you@example.com"
 ```
+
+## スマホ用の設定 (Tailnet)
+
+スマホから、各コンテナのWeb UIを、**Tailnet内だけ**で開けるようにする。HTTPS証明書も
+`tailscale serve` も使わない (Tailnet内の通信は、Tailscaleが暗号化している)。
+
+```
+スマホ → Tailnet (WireGuardで暗号化) → サーバーのTailscale IP:ポート (Incus proxy) → コンテナ内 127.0.0.1:3080
+```
+
+- コンテナ内のWeb UIは `127.0.0.1` のままなので、Macのトンネルの経路は変わらない。
+- 待ち受けは**サーバーのTailscale IPだけ**。LAN (192.168.1.x) からは届かない。
+- URLは `http://` になる (ブラウザの「保護された通信」ではないが、経路はTailscaleで暗号化済み)。
+
+設定 (サーバー上、1回だけ):
+
+1. サーバーのTailscale IPを調べる: `tailscale ip -4`
+2. `terraform.tfvars` に、IPと、コンテナごとのポートを書いて `tofu apply` (Git管理外)。
+
+   ```hcl
+   mobile_bind_ip = "100.x.y.z"
+   dev_instances = {
+     os = { ip = "10.10.0.13", web_port = 8013 }
+   }
+   ```
+
+3. `~/.config/dev/provision.env` を作る (Git管理外)。
+
+   ```sh
+   MOBILE_HOST=dev-server.<tailnet>.ts.net          # MagicDNS名 (tailscale status で確認)
+   MOBILE_MAP="os-dev:8013 lang-dev:8011 cpu-dev:8012"   # コンテナ:ポート (web_port と同じ値)
+   ```
+
+4. `./provision/run` で、コンテナのWeb UIに、このホスト名とポートを許可させる。
+5. スマホにTailscaleを入れ、同じTailnetに参加させる。`dev --mobile os` のQRを、カメラで読み取る。
+
+`host/steps/40-incus.sh` が、IncusをTailscaleより後に起動する設定を入れる (起動時に、Tailscale IPへの
+待ち受けが失敗しないため)。
+
+**Tailscale Funnel (インターネット公開) は使わない。** DeepSeek Harness は、コマンドを実行でき、
+セキュリティ監査も未実施のため、Tailnet内 + トークンの2段に限る。必要なら、TailscaleのACLで、
+スマホからこのポートへの接続だけに絞れる。
 
 ## コンテナを足す・変える
 

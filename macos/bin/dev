@@ -2,8 +2,8 @@
 # dev - Development Serverの状態確認・Wake・Remote Environment起動・
 #       Zed Remote Developmentでのプロジェクトオープンを自動化するlauncher。
 #
-# Usage: dev [--zed | --web] [--login | --no-login] <target>
-#   既定ではZedとDeepSeek HarnessのWeb UIの両方を開く。
+# Usage: dev [--zed] [--web] [--mobile] [--login | --no-login] <target>
+#   既定ではZed、DeepSeek HarnessのWeb UI、スマホ用のQRコードを出す。
 #   target一覧は config/projects.conf を参照。
 set -euo pipefail
 
@@ -27,9 +27,11 @@ usage() {
 Usage: dev [options] <target>
 
 Options:
-  --zed         Zedだけを開く
-  --web         DeepSeek HarnessのWeb UIだけを開く
-  (指定なし)    Zedと Web UI の両方を開く
+  --zed         Zedを開く
+  --web         DeepSeek HarnessのWeb UIを開く (スマホ用のQRコードも表示する)
+  --mobile      スマホ用のQRコードだけを表示する (Zedもブラウザも開かない)
+  (指定なし)    Zed、Web UI、QRコードのすべて
+  (複数指定)    指定したものだけ (例: --zed --mobile)
   --login       Claude Code / Codex のログインを、スキップ設定を無視して案内する
   --no-login    ログイン状況の確認を行わない
 
@@ -37,11 +39,12 @@ Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target=""; only_zed=0; only_web=0; force_login=0; check_login=1
+target=""; only_zed=0; only_web=0; only_mobile=0; force_login=0; check_login=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --zed) only_zed=1 ;;
     --web) only_web=1 ;;
+    --mobile) only_mobile=1 ;;
     --login) force_login=1 ;;
     --no-login) check_login=0 ;;
     -h|--help) usage; exit 0 ;;
@@ -54,8 +57,12 @@ if [ -z "$target" ]; then
   usage
   exit 1
 fi
-want_zed=1; want_web=1
-if [ "$only_zed" = 1 ] || [ "$only_web" = 1 ]; then want_zed=$only_zed; want_web=$only_web; fi
+if [ "$only_zed" = 0 ] && [ "$only_web" = 0 ] && [ "$only_mobile" = 0 ]; then
+  want_zed=1; want_web=1; want_mobile=1
+else
+  want_zed=$only_zed; want_web=$only_web; want_mobile=$only_mobile
+  [ "$only_web" = 1 ] && want_mobile=1   # Web UIを開くときは、QRコードも出す
+fi
 
 load_local_env
 
@@ -102,11 +109,15 @@ if [ -n "$repo" ] && [ "$repo" != "-" ]; then
 fi
 
 # ログイン状況の案内とWeb UIは、失敗しても処理を止めない
-if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ]; then
+# --mobile だけのときは、ログインの案内も省く
+if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ] && { [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; }; then
   DEV_FORCE_LOGIN="$force_login" "$REPO_ROOT/scripts/agent-login" "$remote_host" || true
 fi
 if [ "$want_web" = 1 ]; then
   "$REPO_ROOT/scripts/open-web" "$remote_host" || true
+fi
+if [ "$want_mobile" = 1 ]; then
+  "$REPO_ROOT/scripts/show-mobile-qr" "$remote_host" "$only_mobile" || true
 fi
 if [ "$want_zed" = 1 ]; then
   exec "$REPO_ROOT/scripts/open-project" "$remote_host" "$remote_path"

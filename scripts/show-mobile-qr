@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# スマホ用のDeepSeek Harness Web UIのURL(トークン付き)を、QRコードとして端末に表示する。
+# QRの描画はコンテナ側の qrencode で行う (Macには何も入れない)。失敗しても処理は止めない。
+# スマホはTailscaleに接続している必要がある (URLはTailnet内だけで有効)。
+#
+# Usage: show-mobile-qr <ssh-host> [explicit(1=--mobile指定)]
+set -uo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+host="${1:?usage: show-mobile-qr <ssh-host> [explicit]}"
+explicit="${2:-0}"
+
+base="$(ssh -o BatchMode=yes "$host" 'cat ~/.dsh/mobile-url 2>/dev/null' 2>/dev/null)"
+if [ -z "$base" ]; then
+  # 既定の実行では黙ってスキップ。--mobile と明示したときだけ理由を出す
+  [ "$explicit" = 1 ] && err "スマホ用の設定がありません ($host)。dotfile_infra の provision/README と host/mobile-serve を参照"
+  exit 0
+fi
+
+token="$(ssh -o BatchMode=yes "$host" "grep -o 'token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)"
+if [ -z "$token" ]; then err "Web UIのトークンを取得できません ($host の ~/.dsh/web.log)"; exit 0; fi
+
+if ! ssh -o BatchMode=yes "$host" 'command -v qrencode >/dev/null 2>&1' 2>/dev/null; then
+  err "QRコードを作れません ($host に qrencode がありません。provision/run を実行してください)"; exit 0
+fi
+
+log "スマホ用QR ($host) - Tailscaleに接続したスマホのカメラで読み取ってください"
+ssh -o BatchMode=yes "$host" "qrencode -t ANSIUTF8 -m 2 '${base}?${token}'" 2>/dev/null \
+  || err "QRコードの描画に失敗しました"
+exit 0

@@ -1,10 +1,11 @@
 # 使い方 (`dev` コマンド)
 
 ```sh
-dev os          # Zed と DeepSeek Harness の Web UI の両方を開く
-dev --zed os    # Zed だけ
-dev --web os    # Web UI だけ
-dev --login os  # Claude Code / Codex のログインを案内する (「今後聞かない」も無視)
+dev os            # Zed、Web UI、スマホ用のQRコードを出す
+dev --zed os      # Zed だけ
+dev --web os      # Web UI (+ スマホ用のQR)
+dev --mobile os   # スマホ用のQRコードだけを表示する
+dev --login os    # Claude Code / Codex のログインを案内する (「今後聞かない」も無視)
 ```
 
 ## 目次
@@ -12,6 +13,7 @@ dev --login os  # Claude Code / Codex のログインを案内する (「今後�
 - [`dev` がすること](#dev-がすること)
 - [ログインの案内](#ログインの案内)
 - [Web UI](#web-ui)
+- [スマホから使う (QR)](#スマホから使う-qr)
 - [jj (Jujutsu) を使う](#jj-jujutsu-を使う)
 - [projects.conf](#projectsconf)
 - [ソースコードの置き場所](#ソースコードの置き場所)
@@ -24,8 +26,9 @@ dev --login os  # Claude Code / Codex のログインを案内する (「今後�
 4. `repo` が設定されていて、コンテナ内に `path` が無ければ `git clone`
    (Macのsshエージェントを転送して認証する。privateでもOK。秘密鍵はコンテナに置かない)
 5. Claude Code / Codex のログイン状況を表示する (未ログインでも**止まらない**。下記)
-6. DeepSeek Harness の Web UI を開く (`--zed` のときは省略)
-7. ZedのRemote Developmentで `path` を開く (`--web` のときは省略)
+6. DeepSeek Harness の Web UI を開く (`--web` または指定なしのとき)
+7. スマホ用のQRコードを表示する (`--mobile`、`--web`、または指定なしのとき)
+8. ZedのRemote Developmentで `path` を開く (`--zed` または指定なしのとき)
 
 ## ログインの案内
 
@@ -61,6 +64,24 @@ DeepSeek の APIキーは、Web UIの 設定 → モデル に入力する (初�
 - **トンネルはSSH接続なので、開いている間はサーバーの自動Suspendを止める。** 既定で4時間後に自動で
   閉じる (`DEV_WEB_TUNNEL_TTL` 秒で変更)。
 - URLのトークンは、サービスの起動のたびに変わる。
+
+## スマホから使う (QR)
+
+スマホには、Tailscaleを入れて、同じTailnetに参加させておく。`dev` が表示するQRコードを、
+スマホのカメラで読み取ると、トークン付きのURLでWeb UIが開く。
+
+```sh
+dev --mobile os     # QRだけを表示する (Zedもブラウザも開かない)
+```
+
+- URLは**Tailnet内だけ**で有効 (インターネットにもLANにも公開しない)。トークンは、サービスの再起動のたびに変わる。
+- QRの描画は、コンテナ側の `qrencode` で行う (Macには何も入れない)。
+- 設定が無いコンテナでは、`dev os` では何も表示せず、`--mobile` のときだけ理由を表示する。
+- サーバーが寝ているときは、`dev` がWake-on-LANで起こしてから表示する。スマホ単独では起こせない。
+- **ブラウザの接続は、サーバーの自動Suspendを止めない** (SSH接続ではないため)。エージェントが作業中
+  (CPUを使っている間) は起きているが、ただ画面を開いているだけでは、60分で寝る。
+
+設定のしかた (1回だけ) は [environments.md](environments.md#スマホ用の設定-tailnet) を参照。
 
 ## jj (Jujutsu) を使う
 
