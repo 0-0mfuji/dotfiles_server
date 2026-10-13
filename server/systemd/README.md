@@ -12,6 +12,7 @@
 | 確立済みのSSH接続がある | Macからの接続、ZedがProxyJump経由でコンテナに繋いでいる間 |
 | `systemd-inhibit` で sleep を **block** しているものがある | ビルド、レンダー、エンコード、バックアップ |
 | AIエージェントのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` が作業中 |
+| **GPUが計算中** (使用率が閾値以上) | コンテナ内のPythonでの学習など。VRAMを持つだけの放置ノートブックは対象外。詳細は [docs/gpu.md](../../docs/gpu.md) |
 
 `delay` 型のロック (NetworkManager等) は無視する。マシン全体のCPU使用率は見ない。
 
@@ -30,6 +31,7 @@
 | --- | --- | --- |
 | `DEV_KEEP_AWAKE_PROCS` | `claude` / `codex` / `bin.ts web` | 対象プロセスのコマンドラインに一致する拡張正規表現 |
 | `DEV_KEEP_AWAKE_CPU_TICKS` | `100` | 実行間隔あたりのCPU時間の閾値 (1秒=100ticks) |
+| `DEV_KEEP_AWAKE_GPU_UTIL` | `5` | GPU使用率(%)の閾値。`DEV_GPU_SAMPLES`回 (既定3)、1秒おきに見る |
 
 閾値は、実際にエージェントを動かして、判定ログ (DRY_RUN) を見ながら調整する。
 

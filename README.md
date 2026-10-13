@@ -23,6 +23,7 @@ dev os    # サーバーが寝ていれば起こし、コンテナを起動し�
 | Development Server (Debian) を構築する | [docs/server.md](docs/server.md) |
 | Raspberry Pi (Wake-on-LAN) を設定する | [docs/raspi.md](docs/raspi.md) |
 | 開発環境 (Incusコンテナ) を作る・足す | [docs/environments.md](docs/environments.md) |
+| **GPU** をコンテナから使う (導入・増設・Suspend) | [docs/gpu.md](docs/gpu.md) |
 | `dev` コマンドの使い方、`projects.conf` | [docs/usage.md](docs/usage.md) |
 
 初めて構築する場合の順序: **server → environments → raspi → macos → usage**

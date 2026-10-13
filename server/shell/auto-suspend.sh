@@ -6,6 +6,8 @@
 #   - systemd-inhibit で sleep を block しているジョブがある
 #   - コンテナ内を含むAIエージェント (claude / codex / dsh) のプロセスが、直近の実行間隔でCPUを使っている
 #     (プロンプトを開いたまま放置、常駐するWeb UIの待機は、CPUをほぼ使わないので「アクティブ」にならない)
+#   - GPUが計算中 (nvidia-smi の使用率が閾値以上)。コンテナ内のPython (学習など) も、ホストから見える。
+#     VRAMを持っているだけで使用率が0の放置ノートブックは「アクティブ」にならない。複数のGPUは、どれか1つでよい。
 #
 # 長時間ジョブ (build, CI, render, encode, AI, backup) は、サーバー上で次のように
 # 自身をラップしてSuspendを止める:
@@ -16,6 +18,7 @@
 # 環境変数: DEV_IDLE_TIMEOUT (秒, 既定3600) / DEV_AUTO_SUSPEND_DRY_RUN=1 (判定だけ表示)
 #   DEV_KEEP_AWAKE_PROCS     対象プロセスのコマンドラインに一致する拡張正規表現
 #   DEV_KEEP_AWAKE_CPU_TICKS 1回の実行間隔で、これ以上CPUを使えば「アクティブ」 (既定100 = 約1秒分)
+#   DEV_KEEP_AWAKE_GPU_UTIL  GPU使用率(%)がこれ以上なら「アクティブ」 (既定5)。DEV_GPU_SAMPLES回(既定3)、1秒おきに見る
 set -euo pipefail
 
 IDLE_TIMEOUT="${DEV_IDLE_TIMEOUT:-3600}"
@@ -25,6 +28,9 @@ PROC="${DEV_PROC_ROOT:-/proc}"
 AGENT_RE="${DEV_KEEP_AWAKE_PROCS:-(^|/)claude( |\$)|(^|/)codex( |\$)|bin\.ts web}"
 CPU_THRESHOLD="${DEV_KEEP_AWAKE_CPU_TICKS:-100}"
 CPU_STATE="${DEV_AUTO_SUSPEND_CPU_STATE:-/run/dev-auto-suspend.cpu}"
+NVIDIA_SMI="${DEV_NVIDIA_SMI:-nvidia-smi}"
+GPU_UTIL_THRESHOLD="${DEV_KEEP_AWAKE_GPU_UTIL:-5}"
+GPU_SAMPLES="${DEV_GPU_SAMPLES:-3}"
 
 has_ssh_sessions() {
   ss -tn state established '( dport = :22 or sport = :22 )' 2>/dev/null | tail -n +2 | grep -q .
@@ -58,6 +64,19 @@ agent_cpu_delta() {
   mv "$cur" "$CPU_STATE"
 }
 
+# どれかのGPUの使用率が閾値以上なら成功 (0)。瞬間値だと取りこぼすので、数回、間をおいて見る。
+# nvidia-smi が無い・失敗するとき (ドライバ未導入、GPU無し) は、「アクティブではない」とする。
+has_gpu_activity() {
+  command -v "$NVIDIA_SMI" >/dev/null 2>&1 || return 1
+  local i
+  for ((i = 0; i < GPU_SAMPLES; i++)); do
+    "$NVIDIA_SMI" --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null \
+      | awk -v t="$GPU_UTIL_THRESHOLD" '$1 + 0 >= t { found = 1 } END { exit !found }' && return 0
+    [ "$i" -lt $((GPU_SAMPLES - 1)) ] && sleep 1
+  done
+  return 1
+}
+
 say() { [ "$DRY_RUN" = 1 ] && echo "[dry-run] $*" || true; }
 
 now="$(date +%s)"
@@ -72,6 +91,10 @@ fi
 
 if [ "$agent_delta" != "-" ] && [ "$agent_delta" -ge "$CPU_THRESHOLD" ]; then
   say "active: agent activity (+${agent_delta} ticks)"; echo "$now" > "$STATE_FILE"; exit 0
+fi
+
+if has_gpu_activity; then
+  say "active: gpu busy"; echo "$now" > "$STATE_FILE"; exit 0
 fi
 
 if [ ! -f "$STATE_FILE" ]; then
