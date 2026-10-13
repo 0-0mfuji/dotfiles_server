@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Zedの settings.json の "agent_servers" に、agent_servers.json の「無いエントリだけ」を追記する。
+
+- 既にある項目 (名前が同じもの) は変更しない。Zedが保存したモデルの選択 (default_config_options) なども、そのまま残る。
+- コメントや書式を保つため、JSONを作り直さず、テキストとして追記する。
+- 書き換える前に、バックアップを作る。結果が正しく読めなければ、元に戻す。何度実行しても同じ結果になる。
+
+エージェントのコマンドは、リモートプロジェクトでは、コンテナの中で実行される
+(dotfile_infra の provision が、dsh-acp / claude-agent-acp / codex-acp を、各コンテナに入れる)。
+
+Usage: apply-settings        (設定ファイルを ZED_SETTINGS で変更できる)
+"""
+import json
+import os
+import shutil
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE = os.path.join(HERE, "agent_servers.json")
+PATH = os.environ.get("ZED_SETTINGS", os.path.expanduser("~/.config/zed/settings.json"))
+
+
+def clean_jsonc(text):
+    """コメントと末尾カンマを取り除く (文字列の中は、そのまま)。"""
+    out, i, n, in_str, esc = [], 0, len(text), False, False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if esc: esc = False
+            elif c == "\\": esc = True
+            elif c == '"': in_str = False
+            i += 1
+            continue
+        if c == '"':
+            in_str = True; out.append(c); i += 1; continue
+        if text.startswith("//", i):
+            while i < n and text[i] != "\n": i += 1
+            continue
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2); i = n if j < 0 else j + 2
+            continue
+        if c == ",":
+            j = i + 1
+            while j < n and text[j] in " \t\r\n": j += 1
+            if j < n and text[j] in "}]":
+                i += 1
+                continue
+        out.append(c); i += 1
+    return "".join(out)
+
+
+def parse(text):
+    return json.loads(clean_jsonc(text))
+
+
+def render(name, entry, indent):
+    body = json.dumps(entry, indent=2, ensure_ascii=False).splitlines()
+    lines = [f'{indent}{json.dumps(name, ensure_ascii=False)}: {body[0]}'] + [f"{indent}{l}" for l in body[1:]]
+    return "\n".join(lines) + ","
+
+
+def open_brace_after(text, pattern_pos):
+    return text.index("{", pattern_pos)
+
+
+def main():
+    want = json.load(open(TEMPLATE))
+    if not os.path.exists(PATH):
+        os.makedirs(os.path.dirname(PATH), exist_ok=True)
+        json.dump({"agent_servers": want}, open(PATH, "w"), indent=2, ensure_ascii=False)
+        print(f"created {PATH}")
+        return 0
+
+    text = open(PATH).read()
+    cur = parse(text)
+    have = cur.get("agent_servers", {}) if isinstance(cur.get("agent_servers", {}), dict) else {}
+    missing = {k: v for k, v in want.items() if k not in have}
+    if not missing:
+        print("zed settings: agent_servers は揃っています (変更なし)")
+        return 0
+
+    import re
+    m = None
+    for cand in re.finditer(r'"agent_servers"\s*:\s*\{', text):
+        line_start = text.rfind("\n", 0, cand.start()) + 1
+        if "//" not in text[line_start:cand.start()]:
+            m = cand; break
+    if m is not None:
+        line_start = text.rfind("\n", 0, m.start()) + 1
+        base = text[line_start:m.start()]
+        indent = (base if base.strip() == "" else "") + "  "
+        pos = m.end()
+        block = "".join("\n" + render(k, v, indent) for k, v in missing.items())
+        new = text[:pos] + block + text[pos:]
+    else:
+        pos = text.index("{") + 1
+        inner = "\n".join(render(k, v, "    ") for k, v in missing.items())
+        new = text[:pos] + '\n  "agent_servers": {\n' + inner + "\n  }," + text[pos:]
+
+    try:
+        check = parse(new)
+        assert all(k in check["agent_servers"] for k in want)
+    except Exception as e:  # noqa: BLE001
+        print(f"zed settings: 追記後の内容を読めないため、変更しません ({e})", file=sys.stderr)
+        return 1
+    backup = f"{PATH}.bak-{time.strftime('%Y%m%d-%H%M%S')}"
+    shutil.copy2(PATH, backup)
+    open(PATH, "w").write(new)
+    print("zed settings: 追記 " + ", ".join(missing) + f"  (backup: {os.path.basename(backup)})")
+    return 0
+
+
+sys.exit(main())

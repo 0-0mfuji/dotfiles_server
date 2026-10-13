@@ -63,6 +63,9 @@ if ! grep -qF "Include ~/.ssh/config.d/dotfiles" "$SSHCONFIG"; then
 fi
 fi
 
+# Zedのエージェント (DeepSeek Harness / Claude Code / Codex) を、既存の settings.json に「無いものだけ」追記する
+python3 "$MACOS_DIR/zed/apply-settings"
+
 mkdir -p "$HOME/.config/dev"
 if [ ! -f "$HOME/.config/dev/local.env" ]; then
   cp "$DIR/config/local.env.example" "$HOME/.config/dev/local.env"

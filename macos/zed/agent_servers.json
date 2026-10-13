@@ -1,0 +1,20 @@
+{
+  "DeepSeek Harness": {
+    "type": "custom",
+    "command": "dsh-acp",
+    "args": [],
+    "env": {}
+  },
+  "Claude Code (container)": {
+    "type": "custom",
+    "command": "claude-agent-acp",
+    "args": [],
+    "env": {}
+  },
+  "Codex (container)": {
+    "type": "custom",
+    "command": "codex-acp",
+    "args": [],
+    "env": {}
+  }
+}

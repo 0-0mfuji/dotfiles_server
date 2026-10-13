@@ -65,7 +65,12 @@ MacBookはThin Client。入れるのは Zed / OpenSSH / SSH鍵 / Tailscale / こ
        IgnoreUnknown UseKeychain
    ```
 
-5. `~/.local/bin` をPATHに通し (zshは自動、fishは `fish_add_path ~/.local/bin`)、`dev <target>` で確認する。
+5. **Zedのエージェント**は、`./install.sh macos` が、`~/.config/zed/settings.json` の `agent_servers` に、
+   [macos/zed/agent_servers.json](../macos/zed/agent_servers.json) のうち**無いものだけ**を追記する
+   (DeepSeek Harness / Claude Code (container) / Codex (container))。既にある項目、コメント、Zedが保存した
+   モデルの選択 (`default_config_options`) は、変更しない。書き換える前に、バックアップを作る。
+   単独で実行するには `python3 macos/zed/apply-settings`。
+6. `~/.local/bin` をPATHに通し (zshは自動、fishは `fish_add_path ~/.local/bin`)、`dev <target>` で確認する。
 
 ## Macをリセットしたときの復旧
 
