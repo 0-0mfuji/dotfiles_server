@@ -1,0 +1,7 @@
+#!/bin/sh
+# systemd-sleep フック: 復帰した直後にアイドルタイマーを仕切り直す。
+# (auto-suspend.sh が suspend 直後に書くと、実際に寝る前に書かれて意味がないため、復帰イベントで書く)
+# $1 = pre|post, $2 = suspend|hibernate|...
+case "$1" in
+  post) date +%s > "${DEV_AUTO_SUSPEND_STATE:-/run/dev-auto-suspend.last-active}" ;;
+esac

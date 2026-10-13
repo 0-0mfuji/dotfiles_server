@@ -7,6 +7,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 install -m 755 "$DIR/shell/auto-suspend.sh" /usr/local/bin/dev-auto-suspend.sh
+install -m 755 "$DIR/shell/sleep-hook" /usr/lib/systemd/system-sleep/dev-auto-suspend
 install -m 644 "$DIR/systemd/dev-auto-suspend.service" /etc/systemd/system/
 install -m 644 "$DIR/systemd/dev-auto-suspend.timer" /etc/systemd/system/
 systemctl daemon-reload

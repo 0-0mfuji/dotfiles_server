@@ -54,6 +54,5 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 logger -t dev-auto-suspend "idle for ${idle_for}s, suspending"
+# 復帰後のタイマー仕切り直しは shell/sleep-hook (systemd-sleepのpostフック) が行う
 systemctl suspend
-# 復帰後にidleタイマーを仕切り直す
-date +%s > "$STATE_FILE"
