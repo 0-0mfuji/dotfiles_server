@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Claude Code / Codex のログイン状況を表示し、未ログインなら順にログインを案内する。
+# 契約していない期間もあるため、ログインしなくても処理は止めずに先へ進む。
+#
+# Usage: agent-login <ssh-host>
+# 環境変数:
+#   DEV_AGENT_CHECK=off            確認そのものを行わない
+#   DEV_SKIP_AGENTS="claude codex" 指定したツールを確認しない
+#   DEV_FORCE_LOGIN=1              「今後聞かない」の設定を無視して案内する (dev --login)
+set -uo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+host="${1:?usage: agent-login <ssh-host>}"
+[ "${DEV_AGENT_CHECK:-on}" = off ] && exit 0
+
+skip_dir="$HOME/.config/dev/skip-login"
+
+label()     { case "$1" in claude) echo "Claude Code" ;; codex) echo "Codex" ;; esac; }
+login_cmd() { case "$1" in claude) echo "claude auth login" ;; codex) echo "codex login --device-auth" ;; esac; }
+
+# yes | no | missing
+remote_status() {
+  case "$1" in
+    claude) ssh -o BatchMode=yes "$host" 'command -v claude >/dev/null 2>&1 || { echo missing; exit 0; }; claude auth status 2>/dev/null | grep -q "\"loggedIn\": true" && echo yes || echo no' 2>/dev/null ;;
+    codex)  ssh -o BatchMode=yes "$host" 'command -v codex >/dev/null 2>&1 || { echo missing; exit 0; }; codex login status >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null ;;
+  esac
+}
+
+is_skipped() {
+  [[ " ${DEV_SKIP_AGENTS:-} " == *" $1 "* ]] && return 0
+  [ "${DEV_FORCE_LOGIN:-0}" = 1 ] && return 1
+  [ -e "$skip_dir/$1" ]
+}
+
+tools=()
+for t in claude codex; do is_skipped "$t" || tools+=("$t"); done
+[ "${#tools[@]}" -gt 0 ] || exit 0
+
+summary=""; pending=()
+for t in "${tools[@]}"; do
+  st="$(remote_status "$t")"; st="${st:-unknown}"
+  case "$st" in
+    yes)     summary+="$(label "$t"): ログイン済み  " ;;
+    no)      summary+="$(label "$t"): 未ログイン  "; pending+=("$t") ;;
+    missing) summary+="$(label "$t"): 未導入  " ;;
+    *)       summary+="$(label "$t"): 確認できません  " ;;
+  esac
+done
+log "$summary"
+
+[ "${#pending[@]}" -gt 0 ] || exit 0
+# 対話できない環境では案内せず、状況の表示だけで進む
+{ [ -t 0 ] && [ -t 1 ]; } || exit 0
+
+for t in "${pending[@]}"; do
+  printf '[dev] %s にログインしますか? [y=今する / Enter=今回は進む / s=今後聞かない] ' "$(label "$t")" >&2
+  read -r ans < /dev/tty || ans=""
+  case "$ans" in
+    y|Y)
+      ssh -t "$host" "$(login_cmd "$t")" || true
+      if [ "$(remote_status "$t")" = yes ]; then log "$(label "$t"): ログインしました"; else log "$(label "$t"): ログインできていません (このまま進みます)"; fi
+      ;;
+    s|S)
+      mkdir -p "$skip_dir"; : > "$skip_dir/$t"
+      log "$(label "$t"): 今後聞きません (再開: dev --login <target> または rm $skip_dir/$t)"
+      ;;
+    *) ;;
+  esac
+done
+exit 0

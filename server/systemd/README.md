@@ -11,8 +11,27 @@
 | --- | --- |
 | 確立済みのSSH接続がある | Macからの接続、ZedがProxyJump経由でコンテナに繋いでいる間 |
 | `systemd-inhibit` で sleep を **block** しているものがある | ビルド、レンダー、エンコード、バックアップ |
+| AIエージェントのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` が作業中 |
 
-`delay` 型のロック (NetworkManager等) は無視する。CPU使用率は見ない。
+`delay` 型のロック (NetworkManager等) は無視する。マシン全体のCPU使用率は見ない。
+
+### AIエージェントの活動検出
+
+コンテナ内のプロセスは、ホストの `/proc` からそのまま見える。コマンドラインが `claude` / `codex` /
+`dsh web` に一致するプロセスについて、**2分ごとの実行間隔で増えたCPU時間**を数える。
+
+- 増えたCPU時間が閾値 (既定100ticks = 約1秒) 以上なら「アクティブ」。作業をやめて60分で寝る。
+- プロンプトを開いたまま放置した `claude` や、常駐する `dsh web` の待機は、CPUをほぼ使わない
+  (実測で `dsh web` は60秒で0.11秒) ので、「アクティブ」にならない。
+- pidと起動時刻で識別する。新しく起動したプロセスは、起動時のCPU時間を増分とみなす。
+- 起動直後など、前回の記録が無いときは「アクティブ」とは見なさない。
+
+| 設定 (`/etc/default/dev-auto-suspend`) | 既定 | 意味 |
+| --- | --- | --- |
+| `DEV_KEEP_AWAKE_PROCS` | `claude` / `codex` / `bin.ts web` | 対象プロセスのコマンドラインに一致する拡張正規表現 |
+| `DEV_KEEP_AWAKE_CPU_TICKS` | `100` | 実行間隔あたりのCPU時間の閾値 (1秒=100ticks) |
+
+閾値は、実際にエージェントを動かして、判定ログ (DRY_RUN) を見ながら調整する。
 
 ## 導入
 
@@ -32,7 +51,7 @@ DEV_IDLE_TIMEOUT=7200
 実際にはSuspendせず、判定だけ見る:
 
 ```sh
-DEV_AUTO_SUSPEND_DRY_RUN=1 DEV_AUTO_SUSPEND_STATE=/tmp/x /usr/local/bin/dev-auto-suspend.sh
+DEV_AUTO_SUSPEND_DRY_RUN=1 DEV_AUTO_SUSPEND_STATE=/tmp/x DEV_AUTO_SUSPEND_CPU_STATE=/tmp/xc /usr/local/bin/dev-auto-suspend.sh
 journalctl -t dev-auto-suspend       # 実際にSuspendした記録
 systemctl list-timers dev-auto-suspend.timer
 ```

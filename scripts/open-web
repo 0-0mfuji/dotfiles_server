@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# DeepSeek HarnessのWeb UIを、SSHトンネル経由でMacのブラウザに開く。失敗しても処理は止めない。
+# コンテナ側では dsh-web.service (127.0.0.1:3080) が常駐している (dotfile_infra/provision)。
+#
+# Usage: open-web <ssh-host>
+# 環境変数: DEV_WEB_LOCAL_PORT (既定3080から空きを探す) / DEV_WEB_TUNNEL_TTL (トンネルの寿命・秒、既定14400=4時間)
+#   ※ トンネルはSSH接続なので、開いている間はサーバーの自動Suspendを止める。寿命で自動的に閉じる。
+set -uo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+host="${1:?usage: open-web <ssh-host>}"
+remote_port=3080
+ttl="${DEV_WEB_TUNNEL_TTL:-14400}"
+first_port="${DEV_WEB_LOCAL_PORT:-3080}"
+state_dir="$HOME/.config/dev/web-tunnels"; mkdir -p "$state_dir"
+state="$state_dir/$host"
+
+code="$(ssh -o BatchMode=yes "$host" "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$remote_port/" 2>/dev/null)"
+if [ "$code" != 401 ] && [ "$code" != 200 ]; then
+  err "Web UIが起動していません ($host の dsh-web.service)。サーバーで provision/run を実行してください"
+  exit 0
+fi
+
+url="$(ssh -o BatchMode=yes "$host" "grep -o 'http://127.0.0.1:$remote_port/?token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)"
+if [ -z "$url" ]; then err "Web UIのURLを取得できません ($host の ~/.dsh/web.log)"; exit 0; fi
+
+# 既存のトンネル (同じホスト宛て・生存中) があれば再利用する
+port=""
+if [ -f "$state" ]; then
+  read -r sp spid < "$state" || true
+  if [ -n "${spid:-}" ] && ps -p "$spid" -o args= 2>/dev/null | grep -q -- "-L ${sp}:127.0.0.1:${remote_port}.* ${host} "; then port="$sp"; fi
+fi
+
+if [ -z "$port" ]; then
+  for p in $(seq "$first_port" $((first_port + 9))); do
+    if ! nc -z 127.0.0.1 "$p" 2>/dev/null; then port="$p"; break; fi
+  done
+  [ -n "$port" ] || { err "空いているローカルポートがありません ($first_port-$((first_port + 9)))"; exit 0; }
+  ssh -f -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes \
+      -L "${port}:127.0.0.1:${remote_port}" "$host" "sleep $ttl" </dev/null >/dev/null 2>&1 \
+    || { err "SSHトンネルを張れませんでした"; exit 0; }
+  pid="$(pgrep -nf "ssh .*-L ${port}:127.0.0.1:${remote_port}.* ${host} " || true)"
+  echo "$port ${pid:-0}" > "$state"
+  log "Web UIのトンネル: localhost:$port -> $host:$remote_port (${ttl}秒で自動的に閉じます)"
+fi
+
+url="${url/127.0.0.1:$remote_port/127.0.0.1:$port}"
+log "Web UIを開きます"
+if command -v open >/dev/null 2>&1; then open "$url"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url"; else echo "$url"; fi
+exit 0

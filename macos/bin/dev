@@ -2,7 +2,8 @@
 # dev - Development Serverの状態確認・Wake・Remote Environment起動・
 #       Zed Remote Developmentでのプロジェクトオープンを自動化するlauncher。
 #
-# Usage: dev <target>
+# Usage: dev [--zed | --web] [--login | --no-login] <target>
+#   既定ではZedとDeepSeek HarnessのWeb UIの両方を開く。
 #   target一覧は config/projects.conf を参照。
 set -euo pipefail
 
@@ -23,17 +24,38 @@ source "$REPO_ROOT/scripts/lib.sh"
 
 usage() {
   cat <<EOF
-Usage: dev <target>
+Usage: dev [options] <target>
+
+Options:
+  --zed         Zedだけを開く
+  --web         DeepSeek HarnessのWeb UIだけを開く
+  (指定なし)    Zedと Web UI の両方を開く
+  --login       Claude Code / Codex のログインを、スキップ設定を無視して案内する
+  --no-login    ログイン状況の確認を行わない
 
 Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target="${1:-}"
+target=""; only_zed=0; only_web=0; force_login=0; check_login=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --zed) only_zed=1 ;;
+    --web) only_web=1 ;;
+    --login) force_login=1 ;;
+    --no-login) check_login=0 ;;
+    -h|--help) usage; exit 0 ;;
+    -*) err "unknown option: $1"; usage; exit 1 ;;
+    *) if [ -z "$target" ]; then target="$1"; else err "unexpected argument: $1"; exit 1; fi ;;
+  esac
+  shift
+done
 if [ -z "$target" ]; then
   usage
   exit 1
 fi
+want_zed=1; want_web=1
+if [ "$only_zed" = 1 ] || [ "$only_web" = 1 ]; then want_zed=$only_zed; want_web=$only_web; fi
 
 load_local_env
 
@@ -79,4 +101,13 @@ if [ -n "$repo" ] && [ "$repo" != "-" ]; then
   "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "$repo"
 fi
 
-"$REPO_ROOT/scripts/open-project" "$remote_host" "$remote_path"
+# ログイン状況の案内とWeb UIは、失敗しても処理を止めない
+if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ]; then
+  DEV_FORCE_LOGIN="$force_login" "$REPO_ROOT/scripts/agent-login" "$remote_host" || true
+fi
+if [ "$want_web" = 1 ]; then
+  "$REPO_ROOT/scripts/open-web" "$remote_host" || true
+fi
+if [ "$want_zed" = 1 ]; then
+  exec "$REPO_ROOT/scripts/open-project" "$remote_host" "$remote_path"
+fi
