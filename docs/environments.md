@@ -71,13 +71,16 @@ git diff provision/files/web-defaults.yml
 バージョンを変えるときは `provision/versions.env` を編集して、`./provision/run` を再実行する。
 DeepSeek Harness は開発者プレビューで、互換性が壊れる変更がある。コミットは意図して更新すること。
 
-`git` / `jj` の既定の名前とメールは、コンテナ内の `~/.config/dev/provision.env` に書くと反映される
-(Gitに入れない)。
+`git` / `jj` の既定の名前とメールは、**サーバーの** `~/.config/dev/provision.env` に書くと、
+`./provision/run` が、全コンテナに反映する (Gitに入れない)。
 
 ```sh
 GIT_USER_NAME="Your Name"
 GIT_USER_EMAIL="you@example.com"
 ```
+
+コンテナごとに変えたいときは、そのコンテナ内の `~/.config/dev/provision.env` に同じ名前で書く
+(コンテナ内の値が優先される)。
 
 ## スマホ用の設定 (Tailnet)
 
