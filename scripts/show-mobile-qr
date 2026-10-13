@@ -29,5 +29,7 @@ fi
 
 log "スマホ用QR ($host) - Tailscaleに接続したスマホのカメラで読み取ってください"
 ssh -o BatchMode=yes "$host" "qrencode -t ANSIUTF8 -m 2 '${base}?${token}'" 2>/dev/null \
-  || err "QRコードの描画に失敗しました"
+  || { err "QRコードの描画に失敗しました"; exit 0; }
+# カメラアプリなど、ブラウザの外から開くと、認証クッキー(SameSite=Strict)が付かず認証画面になることがある
+log "認証画面が出たら: ページを再読み込みするか、URLをコピーしてブラウザに貼り付けてください"
 exit 0
