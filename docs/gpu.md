@@ -135,6 +135,6 @@ GPUは、PCIの番地ではなく、**ベンダーID**で渡している (`gpu_v
 | コンテナに `/dev/nvidiactl` が無い | ホストのドライバが有効か。`tofu apply` したか。コンテナを再起動したか |
 | コンテナの `nvidia-smi` が `mismatch` | `./provision/run` で、ホストと同じ版の `libcuda1` にする |
 | `driver on your system is too old` | 既定の `pip install torch` はCUDA 13系。上の `--index-url .../whl/cu126` で入れ直す (ドライバ550はCUDA 12.x) |
-| `cuInit=999` / コンテナに `/dev/nvidia-uvm` が無い | ホストで `nvidia_uvm` が未ロードのまま、コンテナが起動した。ホストで `sudo modprobe nvidia_uvm` してから `incus restart <コンテナ>` (恒久対策: `sudo ./setup.sh 35` を再実行すると、起動時に読み込むようになる) |
+| `cuInit=999` / コンテナに `/dev/nvidia-uvm` が無い | ホストで `nvidia_uvm` が未ロードのまま、コンテナが起動した。ホストで `sudo nvidia-modprobe -u -c=0` してから `incus restart <コンテナ>` (恒久対策: `cd ~/dotfile_infra/host && sudo ./setup.sh 35` を再実行すると、起動時に自動で用意される) |
 | `torch.cuda.is_available()` が False | `nvidia-smi` が通るか。pipが、CPU版のtorchを入れていないか |
 | 復帰後にGPUが見えない | サーバーを再起動する。`journalctl -u nvidia-resume` (sudo) を確認 |
