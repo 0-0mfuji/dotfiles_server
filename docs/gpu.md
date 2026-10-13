@@ -76,7 +76,7 @@
 ```sh
 nvidia-smi                                  # GPUが見えるか
 python3 -m venv .venv && . .venv/bin/activate
-pip install torch                           # CUDA対応版 (CUDAランタイム同梱)
+pip install torch --index-url https://download.pytorch.org/whl/cu126   # CUDA 12.6版 (ホストのドライバ550はCUDA 12.xまで)
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
@@ -134,5 +134,6 @@ GPUは、PCIの番地ではなく、**ベンダーID**で渡している (`gpu_v
 | ホストの `nvidia-smi` が失敗する | 再起動したか。`lsmod \| grep nvidia`。`nouveau` が残っていないか (`lsmod \| grep nouveau`) |
 | コンテナに `/dev/nvidiactl` が無い | ホストのドライバが有効か。`tofu apply` したか。コンテナを再起動したか |
 | コンテナの `nvidia-smi` が `mismatch` | `./provision/run` で、ホストと同じ版の `libcuda1` にする |
+| `driver on your system is too old` | 既定の `pip install torch` はCUDA 13系。上の `--index-url .../whl/cu126` で入れ直す (ドライバ550はCUDA 12.x) |
 | `torch.cuda.is_available()` が False | `nvidia-smi` が通るか。pipが、CPU版のtorchを入れていないか |
 | 復帰後にGPUが見えない | サーバーを再起動する。`journalctl -u nvidia-resume` (sudo) を確認 |
