@@ -78,7 +78,17 @@ Claude Code・Codex と、Zed用の `claude-agent-acp`・`codex-acp` は、バ�
 ./provision/run --update os-dev      # 指定したコンテナだけ
 ```
 
-DeepSeek Harness は開発者プレビューで、互換性が壊れる変更がある。コミットは意図して更新すること。
+DeepSeek Harness は開発者プレビューで、互換性が壊れる変更がある。フォークの特定のコミットに固定していて、更新は次の手順で行う
+(設定とAPIキーは `~/.dsh/` にあるので、更新しても引き継がれる。入れ替わるのはプログラム本体だけ)。
+
+```bash
+./provision/bump-dsh --check         # フォークに新しいコミットがあるか (固定中 → 最新) を表示するだけ
+./provision/bump-dsh                 # provision/versions.env の DSH_COMMIT を最新に書き換える
+git commit -am "Bump DeepSeek Harness" && git push
+
+# サーバーで (ビルドに数分かかり、Webが再起動する)
+git pull && ./provision/run os-dev   # まず1つで確かめてから、./provision/run で全コンテナへ
+```
 
 `git` / `jj` の既定の名前とメールは、**サーバーの** `~/.config/dev/provision.env` に書くと、
 `./provision/run` が、全コンテナに反映する (Gitに入れない)。
