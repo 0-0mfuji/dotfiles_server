@@ -51,10 +51,22 @@ cd ~/dotfile_infra
 | Claude Code / Codex | ログイン用のCLI (ログイン情報は入れない) |
 | DeepSeek Harness | `shiguredo` 版 (日本語UI)。**コミットを固定**してビルドし、`dsh-web.service` として常駐 |
 | プラグイン | Claude Code / Codex のサブエージェント (本体と同じチェックアウトから `link:` で導入) |
+| DeepSeek Harnessの既定設定 | Ollama Cloudのモデル一覧と既定モデル (`deepSeek-v4.1-flash`) など。`provision/files/web-defaults.yml` から、**無い項目だけ**足す (上書きしない)。**APIキーは含まない** |
 | 日本語の指示 | `~/.claude/CLAUDE.md` (Claude Code)、`~/.codex/AGENTS.md` (Codex)、`~/.dsh/AGENTS.md` (DeepSeek Harness)。既にあれば上書きしない |
 
 **初回のビルドには、8GiB以上のメモリが要る** (4GiBではOOMで失敗する)。足りないコンテナは、`terraform.tfvars` の
 `memory` を上げてから流す。スクリプトは、ビルドの前に確認して、足りなければ止まる。
+
+**DeepSeek Harnessの既定設定**は、`os-dev` の設定を元にしている。`os-dev` でモデルを足したり変えたりしたら、
+サーバーで取り込み直して、コミットする (既定モデルは、テンプレート側で管理するので取り込まない)。
+
+```sh
+./provision/capture-web-defaults     # os-dev の Web設定 -> provision/files/web-defaults.yml
+git diff provision/files/web-defaults.yml
+```
+
+新しいコンテナで必要な操作は、**Web UIでのOllama CloudのAPIキーの入力**と、Claude Code / Codex の
+ログインだけ (どちらもコンテナごと)。
 
 バージョンを変えるときは `provision/versions.env` を編集して、`./provision/run` を再実行する。
 DeepSeek Harness は開発者プレビューで、互換性が壊れる変更がある。コミットは意図して更新すること。
