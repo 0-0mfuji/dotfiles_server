@@ -2,7 +2,7 @@
 # dev - Development Serverの状態確認・Wake・Remote Environment起動・
 #       Zed Remote Developmentでのプロジェクトオープンを自動化するlauncher。
 #
-# Usage: dev [--zed] [--web] [--mobile] [--login | --no-login] <target>
+# Usage: dev [--zed] [--web] [--mobile] [--login | --no-login] <target> [project]
 #   既定ではZed、DeepSeek HarnessのWeb UI、スマホ用のQRコードを出す。
 #   target一覧は config/projects.conf を参照。
 set -euo pipefail
@@ -24,7 +24,11 @@ source "$REPO_ROOT/scripts/lib.sh"
 
 usage() {
   cat <<EOF
-Usage: dev [options] <target>
+Usage: dev [options] <target> [project]
+
+  dev os sota   target "os" の中の、プロジェクト "sota" を開く
+  dev os        プロジェクトが複数あれば、番号で選ぶ (1つだけなら、そのまま開く。対話できないときは先頭)
+  dev lang      プロジェクトを分けていない target は、そのまま指定する
 
 Options:
   --zed         Zedを開く
@@ -39,7 +43,7 @@ Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target=""; only_zed=0; only_web=0; only_mobile=0; force_login=0; check_login=1
+target=""; project=""; only_zed=0; only_web=0; only_mobile=0; force_login=0; check_login=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --zed) only_zed=1 ;;
@@ -49,7 +53,9 @@ while [ $# -gt 0 ]; do
     --no-login) check_login=0 ;;
     -h|--help) usage; exit 0 ;;
     -*) err "unknown option: $1"; usage; exit 1 ;;
-    *) if [ -z "$target" ]; then target="$1"; else err "unexpected argument: $1"; exit 1; fi ;;
+    *) if [ -z "$target" ]; then target="$1"
+       elif [ -z "$project" ]; then project="$1"
+       else err "unexpected argument: $1"; exit 1; fi ;;
   esac
   shift
 done
@@ -66,8 +72,12 @@ fi
 
 load_local_env
 
-if ! IFS=' ' read -r remote_host remote_path instance repo < <(lookup_target "$target"); then
-  err "unknown target: $target"
+# "dev os sota" / "dev os" / "dev lang" から、projects.conf のキーを1つに決める
+key="$(resolve_target "$target" "$project")" || exit 1
+[ "$key" != "$target" ] && log "target: $key"
+
+if ! IFS=' ' read -r remote_host remote_path instance repo vcs < <(lookup_target "$key"); then
+  err "unknown target: $key"
   exit 1
 fi
 
@@ -104,8 +114,8 @@ if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
   exit 1
 fi
 
-if [ -n "$repo" ] && [ "$repo" != "-" ]; then
-  "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "$repo"
+if { [ -n "$repo" ] && [ "$repo" != "-" ]; } || [ "$vcs" = jj ]; then
+  "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "${repo:--}" "${vcs:-git}"
 fi
 
 # ログイン状況の案内とWeb UIは、失敗しても処理を止めない

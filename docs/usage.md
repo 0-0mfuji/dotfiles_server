@@ -1,8 +1,10 @@
 # 使い方 (`dev` コマンド)
 
 ```sh
-dev os            # Zed、Web UI、スマホ用のQRコードを出す
-dev --zed os      # Zed だけ
+dev os sota       # target "os" の中の、プロジェクト "sota" を開く (Zed、Web UI、QR)
+dev os            # プロジェクトが複数あれば、番号で選ぶ (1つだけなら、そのまま開く)
+dev lang          # プロジェクトを分けていない target は、そのまま指定する
+dev --zed os sota # Zed だけ
 dev --web os      # Web UI (+ スマホ用のQR)
 dev --mobile os   # スマホ用のQRコードだけを表示する
 dev --login os    # Claude Code / Codex のログインを案内する (「今後聞かない」も無視)
@@ -16,6 +18,7 @@ dev --login os    # Claude Code / Codex のログインを案内する (「今�
 - [スマホから使う (QR)](#スマホから使う-qr)
 - [jj (Jujutsu) を使う](#jj-jujutsu-を使う)
 - [projects.conf](#projectsconf)
+- [1つのコンテナに複数のリポジトリを置く](#1つのコンテナに複数のリポジトリを置く)
 - [ソースコードの置き場所](#ソースコードの置き場所)
 
 ## `dev` がすること
@@ -89,10 +92,17 @@ dev --mobile os     # QRだけを表示する (Zedもブラウザも開かない
 
 ## jj (Jujutsu) を使う
 
-`git` と `jj` は、すべてのコンテナに入っている。`dev` の自動cloneは**今までどおり `git clone`** で、
+`git` と `jj` は、すべてのコンテナに入っている。`dev` の自動cloneは**常に `git clone`** で、
 Macでの作業(gitのみ)にも影響しない。
 
-コンテナ内で、`jj` を使いたいリポジトリのときだけ、次を1回実行する。
+**jjを使うリポジトリは、`projects.conf` の `vcs` 列に `jj` と書く。** `dev` が、clone後に、
+次を自動で実行する (既にあれば何もしない)。
+
+```sh
+jj git init --colocate
+```
+
+`projects.conf` に無いリポジトリで、手動で使うときは、コンテナ内で同じコマンドを1回実行する。
 
 ```sh
 jj git init --colocate     # 既存のgitリポジトリの中に、jjを同居させる
@@ -109,19 +119,43 @@ jj git init --colocate     # 既存のgitリポジトリの中に、jjを同居�
 [config/projects.conf](../config/projects.conf) を編集する。1行が1つのtarget。
 
 ```
-# target  host      path            instance   repo
-os        os-dev    ~/src/os        os-dev     git@github.com:you/my-os.git
+# target    host      path            instance   repo                          vcs
+os/sota     os-dev    ~/src/sota      os-dev     git@github.com:you/sota.git   jj
 ```
 
 | 列 | 内容 |
 | --- | --- |
-| `target` | `dev <target>` の名前 |
+| `target` | `dev <target>` の名前。複数のプロジェクトを置くときは `グループ/プロジェクト` (下記) |
 | `host` | `~/.ssh/config.local` で定義したSSH Host名 |
 | `path` | コンテナ内のプロジェクトパス |
 | `instance` | Incusコンテナ名。`-` で無指定 |
 | `repo` | GitHubのクローンURL。`-` で無指定 |
+| `vcs` | `jj` で、clone後に jj を同居させる (下記)。省略または `git` は、gitのまま |
 
-1つのtargetに設定できる `repo` は1つ。複数ある場合は、別のtargetとして行を足す。
+1つのtargetに設定できる `repo` は1つ。複数ある場合は、次のとおり、行を足す。
+
+## 1つのコンテナに複数のリポジトリを置く
+
+同じコンテナ (`host` / `instance`) を指す行を、**`グループ/プロジェクト`** という名前で足す。
+
+```
+# target    host      path            instance   repo                          vcs
+os/sota     os-dev    ~/src/sota      os-dev     git@github.com:you/sota.git   jj
+os/boot     os-dev    ~/src/boot      os-dev     git@github.com:you/boot.git   jj
+```
+
+```sh
+dev os sota      # 指定したプロジェクトを開く
+dev os boot
+dev os           # 複数あるので、番号で選ぶメニューが出る (Enterで1番目)
+```
+
+- リポジトリごとに、別々のZedのウィンドウ、別々のHarnessのワークスペースになる。
+- コンテナは共通なので、環境 (Node.js、`jj`、ログイン状態、Web UI) は共有される。
+- `dev os` だけのときは、プロジェクトが1つならそのまま開く。複数でも、対話できない環境 (スクリプトなど)
+  では、メニューを出さずに、先頭の行を開く。
+- `--zed` / `--web` / `--mobile` は、そのまま組み合わせられる (`dev --zed os boot`)。
+- グループにしない target (`lang` など) は、今までどおり `dev lang` で開く。
 
 ## ソースコードの置き場所
 

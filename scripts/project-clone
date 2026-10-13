@@ -1,27 +1,42 @@
 #!/usr/bin/env bash
-# リモートにプロジェクトが無ければ git clone する。
+# リモートにプロジェクトが無ければ git clone し、vcs が jj なら jj を同居 (colocate) させる。
 # Macのsshエージェントを転送して認証するので、privateリポジトリでも秘密鍵をリモートに置かない。
-# Usage: project-clone <ssh-host> <path> <repo-url>
+# Usage: project-clone <ssh-host> <path> <repo-url|-> [git|jj]
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib.sh
 source "$DIR/lib.sh"
 
-host="${1:?usage: project-clone <ssh-host> <path> <repo-url>}"
-path="${2:?usage: project-clone <ssh-host> <path> <repo-url>}"
-repo="${3:?usage: project-clone <ssh-host> <path> <repo-url>}"
+host="${1:?usage: project-clone <ssh-host> <path> <repo-url|-> [git|jj]}"
+path="${2:?usage: project-clone <ssh-host> <path> <repo-url|-> [git|jj]}"
+repo="${3:?usage: project-clone <ssh-host> <path> <repo-url|-> [git|jj]}"
+vcs="${4:-git}"
 
-if ! ssh-add -l >/dev/null 2>&1; then
+if [ "$repo" != "-" ] && ! ssh-add -l >/dev/null 2>&1; then
   err "ssh-agent has no identities; private clone will fail (run: ssh-add ~/.ssh/<key>)"
 fi
 
 # path/repoは設定ファイル由来。~はリモートシェルに展開させる
 if ssh -A -o BatchMode=yes "$host" "p=$path; [ -d \"\$p/.git\" ]"; then
   log "project already present: $host:$path"
+elif [ "$repo" = "-" ]; then
+  err "project not found and no repo configured: $host:$path"
   exit 0
+else
+  log "cloning $repo -> $host:$path"
+  ssh -A -o BatchMode=yes "$host" \
+    "p=$path; mkdir -p \"\$(dirname \"\$p\")\" && GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new' git clone '$repo' \"\$p\""
 fi
 
-log "cloning $repo -> $host:$path"
-ssh -A -o BatchMode=yes "$host" \
-  "p=$path; mkdir -p \"\$(dirname \"\$p\")\" && GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new' git clone '$repo' \"\$p\""
+# jj: gitの中に同居させる。.git は残るので、git/Zed/Claude/Codexはそのまま動く。.jj/ は自動でgitの対象外になる。
+if [ "$vcs" = jj ]; then
+  if ssh -o BatchMode=yes "$host" "p=$path; [ -d \"\$p/.jj\" ]"; then
+    log "jj already initialized: $host:$path"
+  elif ssh -o BatchMode=yes "$host" 'command -v jj >/dev/null 2>&1'; then
+    log "jj git init --colocate: $host:$path"
+    ssh -o BatchMode=yes "$host" "p=$path; cd \"\$p\" && jj git init --colocate >/dev/null"
+  else
+    err "jj is not installed on $host (run provision/run)"
+  fi
+fi
