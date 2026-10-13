@@ -69,6 +69,15 @@ git diff provision/files/web-defaults.yml
 ログインだけ (どちらもコンテナごと)。
 
 バージョンを変えるときは `provision/versions.env` を編集して、`./provision/run` を再実行する。
+
+Claude Code・Codex と、Zed用の `claude-agent-acp`・`codex-acp` は、バージョンを固定せず、入れた時点の最新のままになる (自動では更新されない)。
+最新にしたいときは、サーバーで次を実行する。更新で挙動が変わることがあるので、作業の合間に行う。
+
+```bash
+./provision/run --update             # 全コンテナ
+./provision/run --update os-dev      # 指定したコンテナだけ
+```
+
 DeepSeek Harness は開発者プレビューで、互換性が壊れる変更がある。コミットは意図して更新すること。
 
 `git` / `jj` の既定の名前とメールは、**サーバーの** `~/.config/dev/provision.env` に書くと、
