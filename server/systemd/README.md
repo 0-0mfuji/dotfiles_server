@@ -21,7 +21,7 @@
 コンテナ内のプロセスは、ホストの `/proc` からそのまま見える。コマンドラインが `claude` / `codex` /
 `dsh web` に一致するプロセスについて、**2分ごとの実行間隔で増えたCPU時間**を数える。
 
-- 増えたCPU時間が閾値 (既定100ticks = 約1秒) 以上なら「アクティブ」。作業をやめて60分で寝る。
+- 増えたCPU時間が閾値 (既定300ticks = 約3秒。待機中のWeb UIが、2分あたり約90ticks使うため、それより高くしてある) 以上なら「アクティブ」。作業をやめて60分で寝る。
 - プロンプトを開いたまま放置した `claude` や、常駐する `dsh web` の待機は、CPUをほぼ使わない
   (実測で `dsh web` は60秒で0.11秒) ので、「アクティブ」にならない。
 - pidと起動時刻で識別する。新しく起動したプロセスは、起動時のCPU時間を増分とみなす。
@@ -30,7 +30,7 @@
 | 設定 (`/etc/default/dev-auto-suspend`) | 既定 | 意味 |
 | --- | --- | --- |
 | `DEV_KEEP_AWAKE_PROCS` | `claude` / `codex` / `bin.ts web` | 対象プロセスのコマンドラインに一致する拡張正規表現 |
-| `DEV_KEEP_AWAKE_CPU_TICKS` | `100` | 実行間隔あたりのCPU時間の閾値 (1秒=100ticks) |
+| `DEV_KEEP_AWAKE_CPU_TICKS` | `300` | 実行間隔あたりのCPU時間の閾値 (1秒=100ticks) |
 | `DEV_KEEP_AWAKE_GPU_UTIL` | `5` | GPU使用率(%)の閾値。`DEV_GPU_SAMPLES`回 (既定3)、1秒おきに見る |
 
 閾値は、実際にエージェントを動かして、判定ログ (DRY_RUN) を見ながら調整する。
@@ -55,8 +55,8 @@ DEV_IDLE_TIMEOUT=7200
 ```sh
 DEV_AUTO_SUSPEND_DRY_RUN=1 DEV_AUTO_SUSPEND_STATE=/tmp/x DEV_AUTO_SUSPEND_CPU_STATE=/tmp/xc /usr/local/bin/dev-auto-suspend.sh
 journalctl -t dev-auto-suspend       # 2分ごとの判定の記録 (Suspendした記録も、ここに出る)
-# 例: active (ssh) ssh=2 inhibit=0 cpu=52/100 gpu=0   <- sshが理由で起きている
-#     idle 1800s/3600s ssh=0 inhibit=0 cpu=7/100 gpu=0  <- idleが30分続いている
+# 例: active (ssh) ssh=2 inhibit=0 cpu=52/300 gpu=0   <- sshが理由で起きている
+#     idle 1800s/3600s ssh=0 inhibit=0 cpu=7/300 gpu=0  <- idleが30分続いている
 # どの理由がどれだけ続いたかを数える:
 journalctl -t dev-auto-suspend --since '24 hours ago' -o cat | sed -E 's/ .*//; s/^(active) \((.*)\).*/\1:\2/' | sort | uniq -c
 systemctl list-timers dev-auto-suspend.timer

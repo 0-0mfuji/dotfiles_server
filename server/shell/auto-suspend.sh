@@ -17,7 +17,7 @@
 #
 # 環境変数: DEV_IDLE_TIMEOUT (秒, 既定3600) / DEV_AUTO_SUSPEND_DRY_RUN=1 (判定だけ表示)
 #   DEV_KEEP_AWAKE_PROCS     対象プロセスのコマンドラインに一致する拡張正規表現
-#   DEV_KEEP_AWAKE_CPU_TICKS 1回の実行間隔で、これ以上CPUを使えば「アクティブ」 (既定100 = 約1秒分)
+#   DEV_KEEP_AWAKE_CPU_TICKS 1回の実行間隔で、これ以上CPUを使えば「アクティブ」 (既定300 = 約3秒分。待機中のWeb UI3つで、2分あたり約90 ticks使うので、それより十分高くする)
 #   DEV_KEEP_AWAKE_GPU_UTIL  GPU使用率(%)がこれ以上なら「アクティブ」 (既定5)。DEV_GPU_SAMPLES回(既定3)、1秒おきに見る
 set -euo pipefail
 
@@ -26,7 +26,7 @@ STATE_FILE="${DEV_AUTO_SUSPEND_STATE:-/run/dev-auto-suspend.last-active}"
 DRY_RUN="${DEV_AUTO_SUSPEND_DRY_RUN:-0}"
 PROC="${DEV_PROC_ROOT:-/proc}"
 AGENT_RE="${DEV_KEEP_AWAKE_PROCS:-(^|/)claude( |\$)|(^|/)codex( |\$)|bin\.ts web}"
-CPU_THRESHOLD="${DEV_KEEP_AWAKE_CPU_TICKS:-100}"
+CPU_THRESHOLD="${DEV_KEEP_AWAKE_CPU_TICKS:-300}"
 CPU_STATE="${DEV_AUTO_SUSPEND_CPU_STATE:-/run/dev-auto-suspend.cpu}"
 NVIDIA_SMI="${DEV_NVIDIA_SMI:-nvidia-smi}"
 GPU_UTIL_THRESHOLD="${DEV_KEEP_AWAKE_GPU_UTIL:-5}"
