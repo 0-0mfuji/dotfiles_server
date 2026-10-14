@@ -32,10 +32,6 @@ NVIDIA_SMI="${DEV_NVIDIA_SMI:-nvidia-smi}"
 GPU_UTIL_THRESHOLD="${DEV_KEEP_AWAKE_GPU_UTIL:-5}"
 GPU_SAMPLES="${DEV_GPU_SAMPLES:-3}"
 
-has_ssh_sessions() {
-  ss -tn state established '( dport = :22 or sport = :22 )' 2>/dev/null | tail -n +2 | grep -q .
-}
-
 # --list は mode での絞り込みができないため、最終列(MODE)が block かつ WHAT に sleep を含む行だけを見る
 has_sleep_inhibitors() {
   systemd-inhibit --list --no-pager --no-legend 2>/dev/null | awk '$NF == "block" && /sleep/ { found = 1 } END { exit !found }'
@@ -79,22 +75,26 @@ has_gpu_activity() {
 
 say() { [ "$DRY_RUN" = 1 ] && echo "[dry-run] $*" || true; }
 
+# 毎回の判定の根拠を、journalに1行残す (閾値の調整用)。確認: journalctl -t dev-auto-suspend --since today
+#   ssh=確立済みSSH接続の数 / inhibit=sleepをblockするjobの有無 / cpu=エージェントのCPU増分(ticks) / gpu=GPUが計算中か
+note() { [ "$DRY_RUN" = 1 ] || logger -t dev-auto-suspend "$*"; }
+
 now="$(date +%s)"
 agent_delta="$(agent_cpu_delta)"
+ssh_n="$(ss -tn state established '( dport = :22 or sport = :22 )' 2>/dev/null | tail -n +2 | grep -c . || true)"
+has_sleep_inhibitors && inhibit=1 || inhibit=0
+has_gpu_activity && gpu=1 || gpu=0
 
-if has_ssh_sessions; then
-  say "active: ssh session"; echo "$now" > "$STATE_FILE"; exit 0
-fi
-if has_sleep_inhibitors; then
-  say "active: sleep inhibitor"; echo "$now" > "$STATE_FILE"; exit 0
-fi
+reason=""
+[ "$ssh_n" -gt 0 ] && reason="ssh"
+[ "$inhibit" = 1 ] && reason="${reason:+$reason,}inhibitor"
+if [ "$agent_delta" != "-" ] && [ "$agent_delta" -ge "$CPU_THRESHOLD" ]; then reason="${reason:+$reason,}agent"; fi
+[ "$gpu" = 1 ] && reason="${reason:+$reason,}gpu"
 
-if [ "$agent_delta" != "-" ] && [ "$agent_delta" -ge "$CPU_THRESHOLD" ]; then
-  say "active: agent activity (+${agent_delta} ticks)"; echo "$now" > "$STATE_FILE"; exit 0
-fi
-
-if has_gpu_activity; then
-  say "active: gpu busy"; echo "$now" > "$STATE_FILE"; exit 0
+if [ -n "$reason" ]; then
+  note "active (${reason}) ssh=${ssh_n} inhibit=${inhibit} cpu=${agent_delta}/${CPU_THRESHOLD} gpu=${gpu}"
+  say "active: ${reason} (ssh=${ssh_n} inhibit=${inhibit} cpu=${agent_delta} gpu=${gpu})"
+  echo "$now" > "$STATE_FILE"; exit 0
 fi
 
 if [ ! -f "$STATE_FILE" ]; then
@@ -103,6 +103,8 @@ fi
 
 last_active="$(cat "$STATE_FILE")"
 idle_for=$((now - last_active))
+
+note "idle ${idle_for}s/${IDLE_TIMEOUT}s ssh=${ssh_n} inhibit=${inhibit} cpu=${agent_delta}/${CPU_THRESHOLD} gpu=${gpu}"
 
 if [ "$idle_for" -lt "$IDLE_TIMEOUT" ]; then
   say "idle ${idle_for}s < ${IDLE_TIMEOUT}s; not yet"; exit 0

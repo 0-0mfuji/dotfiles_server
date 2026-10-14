@@ -54,7 +54,11 @@ DEV_IDLE_TIMEOUT=7200
 
 ```sh
 DEV_AUTO_SUSPEND_DRY_RUN=1 DEV_AUTO_SUSPEND_STATE=/tmp/x DEV_AUTO_SUSPEND_CPU_STATE=/tmp/xc /usr/local/bin/dev-auto-suspend.sh
-journalctl -t dev-auto-suspend       # 実際にSuspendした記録
+journalctl -t dev-auto-suspend       # 2分ごとの判定の記録 (Suspendした記録も、ここに出る)
+# 例: active (ssh) ssh=2 inhibit=0 cpu=52/100 gpu=0   <- sshが理由で起きている
+#     idle 1800s/3600s ssh=0 inhibit=0 cpu=7/100 gpu=0  <- idleが30分続いている
+# どの理由がどれだけ続いたかを数える:
+journalctl -t dev-auto-suspend --since '24 hours ago' -o cat | sed -E 's/ .*//; s/^(active) \((.*)\).*/\1:\2/' | sort | uniq -c
 systemctl list-timers dev-auto-suspend.timer
 ```
 
