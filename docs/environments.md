@@ -53,6 +53,7 @@ cd ~/dotfile_infra
 | プラグイン | Claude Code / Codex のサブエージェント (本体と同じチェックアウトから `link:` で導入) |
 | DeepSeek Harnessの既定設定 | Ollama Cloudのモデル一覧と既定モデル (`deepSeek-v4.1-flash`) など。`provision/files/web-defaults.yml` から、**無い項目だけ**足す (上書きしない)。**APIキーは含まない** |
 | OCaml (`lang-dev` のみ) | `opam` で `OCAML_VERSION` (`versions.env`) のコンパイラを入れ、`dune` / `ocaml-lsp-server` / `ocamlformat` / `utop` / `alcotest` / `odoc` / `ppx_deriving` を導入。ssh経由の非対話シェルでも使えるよう `~/.profile` と `~/.bashrc` の先頭でPATHを通す。コンパイラ以外は入れた時点の最新で、`--update` で更新 |
+| Rust (`lang-dev` のみ) | `rustup` で `RUST_VERSION` (`versions.env`) を入れ、`clippy` / `rustfmt` / `rust-analyzer` / `rust-src` も導入。`~/.profile` と `~/.bashrc` の先頭でPATHを通す |
 | mdBook (`lang-dev` のみ) | 公式のビルド済みバイナリ。`versions.env` で版とSHA-256を固定 |
 | 日本語の指示 | `~/.claude/CLAUDE.md` (Claude Code)、`~/.codex/AGENTS.md` (Codex)、`~/.dsh/AGENTS.md` (DeepSeek Harness)。既にあれば上書きしない |
 
