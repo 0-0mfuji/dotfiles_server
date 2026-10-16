@@ -60,7 +60,7 @@ cd ~/dotfile_infra
 | Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、`uv`。ヘッドレスのレンダリング用 (`.blend` の作成はMacのGUIで) |
 | 日本語の指示 | `~/.claude/CLAUDE.md` (Claude Code)、`~/.codex/AGENTS.md` (Codex)、`~/.dsh/AGENTS.md` (DeepSeek Harness)。既にあれば上書きしない |
 
-**初回のビルドには、8GiB以上のメモリが要る** (4GiBではOOMで失敗する)。足りないコンテナは、`terraform.tfvars` の
+**初回のビルドには、12GiB以上 (推奨16GiB) のメモリが要る。** 4GiBではOOMで失敗し、DeepSeek Harness の `d3627f4` 以降は8GiBでも失敗した。上限であって予約ではないので、大きめでよい。足りないコンテナは、`terraform.tfvars` の
 `memory` を上げてから流す。スクリプトは、ビルドの前に確認して、足りなければ止まる。
 
 **DeepSeek Harnessの既定設定**は、`os-dev` の設定を元にしている。`os-dev` でモデルを足したり変えたりしたら、
