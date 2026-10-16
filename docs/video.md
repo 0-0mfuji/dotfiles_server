@@ -107,8 +107,9 @@ video     video-dev     ~/src/video      video-dev   -   git   voice-dev   3000
 
 ```sh
 # サーバー上で
-incus exec video-dev --user 1000 --group 1000 --cwd /home/dev --env HOME=/home/dev -- mkdir -p src
-incus file push -r --uid 1000 --gid 1000 ~/dotfile_infra/templates/video video-dev/home/dev/src/
+incus exec video-dev -- mkdir -p /home/dev/src
+incus file push -r ~/dotfile_infra/templates/video video-dev/home/dev/src/     # -r では uid 指定が使えない
+incus exec video-dev -- chown -R dev:dev /home/dev/src/video
 # コンテナ内で (Zed のターミナルなど)
 cd ~/src/video && git init && pnpm install --frozen-lockfile && uv sync
 ```
@@ -169,7 +170,7 @@ dev --studio video   # Studio だけ
 | provision が `video: apt install FAILED` | ログの失敗したパッケージ名 (Debianの版で名前が違うことがある) を、`VIDEO_PKGS` で直す |
 | Studio が開かない | コンテナの `~/.cache/remotion-studio.log`。プロジェクトに `node_modules` があるか |
 | 字幕が豆腐になる | `fc-list :lang=ja` が空 -> `./provision/run video-dev` (`fonts-noto-cjk`) |
-| `/srv/media` に書けない | tofu の `media = "rw"` と `apply` 済みか。`ls -ld /srv/media` の所有者 (`shift=true` で `dev` に見えるはず) |
+| `/srv/media` に書けない | 所有者が root のまま。`incus exec video-dev -- chown dev:dev /srv/media` (provision が自動で行う)。tofu の `media = "rw"` と `apply` 済みかも確認 |
 | `h264_nvenc` が使えない | [gpu.md](gpu.md#nvenc-ffmpeg-のgpuエンコード)。CPUの `libx264` なら書き出せる |
 | レンダリング中に寝た | `journalctl -t dev-auto-suspend`。対象のプロセス名が合っているか (`DEV_KEEP_AWAKE_PROCS`) |
 
@@ -179,6 +180,6 @@ dev --studio video   # Studio だけ
 
 - Remotion (Chrome) 用のaptパッケージ名 (`libasound2t64` など) が、Debian 13 で通るか。
 - VOICEVOX の7zを展開したあとのディレクトリ構成 (`run` の場所)。
-- `shift=true` のdiskデバイスが、ZFS の `dev-tank/media` で期待どおり動くか。
+- `shift=true` のdiskデバイスは、ZFS の `dev-tank/media` で idmapped マウントになったが、所有者は root のままだった (provision が `chown dev:dev` する)。
 - NVENC に必要な capability が、Incusの `gpu` デバイスで渡るか。
 - Remotion のライセンス条件 (収益化・会社利用)。
