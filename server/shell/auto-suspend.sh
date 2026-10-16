@@ -4,8 +4,8 @@
 # Suspendを止める条件 (どれか1つでも該当すれば「アクティブ」):
 #   - 確立済みのSSH接続がある (Mac→サーバー、サーバー→コンテナ(ProxyJump経由のZed)を含む)
 #   - systemd-inhibit で sleep を block しているジョブがある
-#   - コンテナ内を含むAIエージェント (claude / codex / dsh) のプロセスが、直近の実行間隔でCPUを使っている
-#     (プロンプトを開いたまま放置、常駐するWeb UIの待機は、CPUをほぼ使わないので「アクティブ」にならない)
+#   - コンテナ内を含むAIエージェント (claude / codex / dsh) と、動画のレンダリング (ffmpeg / blender / Remotionのheadless Chrome) のプロセスが、直近の実行間隔でCPUを使っている
+#     (プロンプトを開いたまま放置、常駐するWeb UIの待機は、CPUをほぼ使わないので「アクティブ」にならない。コンテナ内のジョブはホストのinhibitorを持てないので、レンダリングはこれで検知する)
 #   - GPUが計算中 (nvidia-smi の使用率が閾値以上)。コンテナ内のPython (学習など) も、ホストから見える。
 #     VRAMを持っているだけで使用率が0の放置ノートブックは「アクティブ」にならない。複数のGPUは、どれか1つでよい。
 #
@@ -25,7 +25,7 @@ IDLE_TIMEOUT="${DEV_IDLE_TIMEOUT:-3600}"
 STATE_FILE="${DEV_AUTO_SUSPEND_STATE:-/run/dev-auto-suspend.last-active}"
 DRY_RUN="${DEV_AUTO_SUSPEND_DRY_RUN:-0}"
 PROC="${DEV_PROC_ROOT:-/proc}"
-AGENT_RE="${DEV_KEEP_AWAKE_PROCS:-(^|/)claude( |\$)|(^|/)codex( |\$)|bin\.ts web}"
+AGENT_RE="${DEV_KEEP_AWAKE_PROCS:-(^|/)claude( |\$)|(^|/)codex( |\$)|bin\.ts web|(^|/)ffmpeg( |\$)|(^|/)blender( |\$)|chrome-headless-shell|(^|/)remotion( |\$)}"
 CPU_THRESHOLD="${DEV_KEEP_AWAKE_CPU_TICKS:-300}"
 CPU_STATE="${DEV_AUTO_SUSPEND_CPU_STATE:-/run/dev-auto-suspend.cpu}"
 NVIDIA_SMI="${DEV_NVIDIA_SMI:-nvidia-smi}"
