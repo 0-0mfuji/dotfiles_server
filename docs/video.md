@@ -174,12 +174,21 @@ dev --studio video   # Studio だけ
 | `h264_nvenc` が使えない | [gpu.md](gpu.md#nvenc-ffmpeg-のgpuエンコード)。CPUの `libx264` なら書き出せる |
 | レンダリング中に寝た | `journalctl -t dev-auto-suspend`。対象のプロセス名が合っているか (`DEV_KEEP_AWAKE_PROCS`) |
 
-## サーバーで未確認の点
+## 実機での確認状況 (2026-10-17、video-dev / voice-dev を新規構築)
 
-この構成は、書いてあるだけで、サーバーでは**まだ一度も実行していない**。最初の実行で、次を確かめる (違えば、該当の箇所を直して、ここも更新する)。
+確認できたこと:
 
-- Remotion (Chrome) 用のaptパッケージ名 (`libasound2t64` など) が、Debian 13 で通るか。
-- VOICEVOX の7zを展開したあとのディレクトリ構成 (`run` の場所)。
-- `shift=true` のdiskデバイスは、ZFS の `dev-tank/media` で idmapped マウントになったが、所有者は root のままだった (provision が `chown dev:dev` する)。
-- NVENC に必要な capability が、Incusの `gpu` デバイスで渡るか。
+- `tofu apply` (追加2・削除0)、`./provision/run voice-dev video-dev` が通る。Remotion用のaptパッケージ名 (`libasound2t64` など) は Debian 13 で通った。
+- VOICEVOX 0.25.2 が `voice-dev` で常駐し、`video-dev` から `VOICE_URL` で呼べる。`scripts/voice.py` が `/srv/media/audio` に wav を書く。
+- `pnpm render Hello` で日本語の字幕が豆腐にならずに書き出せる。`h264_nvenc` が使える (`libnvidia-encode1`)。
+- `dev --studio video` で、依存の `voice-dev` が起動し、Remotion Studio がMacのlocalhost:3000で開く。
+- ffmpeg の書き出し中は、自動Suspendの判定が `agent` になり、終わると外れる (dry-run、実機の `/proc`)。
+- `shift=true` のdiskデバイスは idmapped マウントになったが、所有者が root だったため、provision が `chown dev:dev /srv/media` する。
+
+まだ確認していないこと:
+
+- サーバーの `/usr/local/bin/dev-auto-suspend.sh` は古い版のまま。**`sudo ./server/install-suspend.sh`** で入れ替えるまで、ffmpeg などは検知されない。
+- `blender-dev` (作っていない)。
 - Remotion のライセンス条件 (収益化・会社利用)。
+
+> DeepSeek Harness は `d3627f4` に上げた。ビルドに **12GiB以上** (推奨16GiB) のメモリが要る。8GiBの `lang-dev` / `cpu-dev` / `os-dev` を `./provision/run` し直すと、事前チェックで止まる (上限を上げて `tofu apply` する)。

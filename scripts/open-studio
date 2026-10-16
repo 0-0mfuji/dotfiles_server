@@ -25,7 +25,8 @@ if ! is_up; then
   fi
   log "Remotion Studio を起動します ($host:$path, port $remote_port)"
   # ssh を切っても残るよう、setsid + nohup で切り離す。ログは ~/.cache/remotion-studio.log
-  ssh -o BatchMode=yes "$host" "mkdir -p ~/.cache && cd $path && setsid nohup npx remotion studio --port=$remote_port --no-open >> ~/.cache/remotion-studio.log 2>&1 < /dev/null &" </dev/null >/dev/null 2>&1 \
+  # (& は npx だけに掛ける。&& の連なり全体に掛けると、サブシェルが ssh の出力を握り続けて、ssh が戻らない)
+  ssh -o BatchMode=yes "$host" "mkdir -p ~/.cache && cd $path && { setsid nohup npx remotion studio --port=$remote_port --no-open >> ~/.cache/remotion-studio.log 2>&1 < /dev/null & }" </dev/null >/dev/null 2>&1 \
     || { err "Remotion Studio を起動できませんでした"; exit 0; }
   for _ in $(seq 1 30); do is_up && break; sleep 2; done
   is_up || { err "Remotion Studio が起動しません (コンテナの ~/.cache/remotion-studio.log を確認)"; exit 0; }
