@@ -127,6 +127,20 @@ GPUは、PCIの番地ではなく、**ベンダーID**で渡している (`gpu_v
 - 計算が競合すると、全体が遅くなる (GPUは、時間で分けて使われる)。
 - `docker` + NVIDIA Container Toolkit (Kaggleの公式イメージ) は、今は構築していない。必要になったら足す。
 
+## NVENC (ffmpeg のGPUエンコード)
+
+`video-dev` では、`./provision/run` が、ホストのドライバと同じ版の `libnvidia-encode1` を入れ、
+`h264_nvenc` で1フレームを書き出して自己点検する (`[provision] video: h264_nvenc: ok`)。
+
+```sh
+ffmpeg -i in.mp4 -c:v h264_nvenc -preset p5 -cq 23 out.mp4
+```
+
+- 自己点検が `WARNING` のときは、CPUの `libx264` で書き出せる。NVENCが要るなら、Incusの `gpu` デバイスに
+  video capability が渡っているか (`nvidia.driver.capabilities`) を、サーバーで確認する。
+- Remotion は、書き出しにCPUのエンコードを使う。NVENCを使うのは、`ffmpeg` を直接呼ぶ処理 (変換・結合など)。
+- VRAM (8GB) は全コンテナで分け合う。`voice-dev` の VOICEVOX は **CPU版**にして、VRAM を whisper / Blender に残している。
+
 ## うまくいかないとき
 
 | 症状 | 確認 |

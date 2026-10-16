@@ -55,6 +55,9 @@ cd ~/dotfile_infra
 | OCaml (`lang-dev` のみ) | `opam` で `OCAML_VERSION` (`versions.env`) のコンパイラを入れ、`dune` / `ocaml-lsp-server` / `ocamlformat` / `utop` / `alcotest` / `odoc` / `ppx_deriving` を導入。ssh経由の非対話シェルでも使えるよう `~/.profile` と `~/.bashrc` の先頭でPATHを通す。コンパイラ以外は入れた時点の最新で、`--update` で更新 |
 | Rust (`lang-dev` のみ) | `rustup` で `RUST_VERSION` (`versions.env`) を入れ、`clippy` / `rustfmt` / `rust-analyzer` / `rust-src` も導入。`~/.profile` と `~/.bashrc` の先頭でPATHを通す |
 | mdBook (`lang-dev` のみ) | 公式のビルド済みバイナリ。`versions.env` で版とSHA-256を固定 |
+| ffmpeg など (`video-dev` のみ) | `ffmpeg` / `mediainfo` / `sox` / `imagemagick`、日本語フォント (`fonts-noto-cjk`)、Remotion (Chrome) の実行ライブラリ、`corepack`、`uv` (版とSHA-256を固定)。npm・pipのライブラリはプロジェクトの lockfile で管理する |
+| VOICEVOX ENGINE (`voice-dev` のみ) | CPU版を `/opt/voicevox_engine` に展開 (版とSHA-256を固定)。`voicevox-engine.service` が `:50021` で常駐。認証が無いので、`web_port` は付けない。`video-dev` から固定IPで呼ぶ |
+| Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、`uv`。ヘッドレスのレンダリング用 (`.blend` の作成はMacのGUIで) |
 | 日本語の指示 | `~/.claude/CLAUDE.md` (Claude Code)、`~/.codex/AGENTS.md` (Codex)、`~/.dsh/AGENTS.md` (DeepSeek Harness)。既にあれば上書きしない |
 
 **初回のビルドには、8GiB以上のメモリが要る** (4GiBではOOMで失敗する)。足りないコンテナは、`terraform.tfvars` の
@@ -149,6 +152,7 @@ GIT_USER_EMAIL="you@example.com"
 ## コンテナを足す・変える
 
 1. `terraform.tfvars` の `dev_instances` にエントリを足す (`ip` は他と重ならない固定IP)。
+   素材を他のコンテナと受け渡すなら `media = "rw"` (共有ボリューム `/srv/media`。動画制作は [video.md](video.md))。
 2. サーバーで `tofu apply`。
 3. Macの `~/.ssh/config.local` に `Host <key>-dev` を足す (`HostName` は上の `ip`、`ProxyJump dev-server`)。
 4. Macの [config/projects.conf](../config/projects.conf) にtargetの行を足す (`instance` 列は `<key>-dev`)。

@@ -13,6 +13,11 @@
 #       User dev
 #       ProxyJump dev-server
 #
+#   Host video-dev            # 動画制作 (docs/video.md)。voice-dev / blender-dev へは dev が起動するだけで、sshは不要
+#       HostName 10.10.0.20       # terraform.tfvars の video の ip
+#       User dev
+#       ProxyJump dev-server
+#
 # ~/.ssh/config の先頭に以下が必要 (install.sh が追記する。
 # ~/.ssh/config がシンボリックリンクの場合は自動編集しないので、手動で足す):
 #   Include ~/.ssh/config.d/dotfiles

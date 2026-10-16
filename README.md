@@ -24,6 +24,7 @@ dev os    # サーバーが寝ていれば起こし、コンテナを起動し�
 | Raspberry Pi (Wake-on-LAN) を設定する | [docs/raspi.md](docs/raspi.md) |
 | 開発環境 (Incusコンテナ) を作る・足す | [docs/environments.md](docs/environments.md) |
 | **GPU** をコンテナから使う (導入・増設・Suspend) | [docs/gpu.md](docs/gpu.md) |
+| **動画制作** (video / voice / blender) を**ゼロから再現する** | [docs/video.md](docs/video.md) |
 | `dev` コマンドの使い方、`projects.conf` | [docs/usage.md](docs/usage.md) |
 | AI・ツールを**更新**する (`provision/run --update`, `bump-dsh`) | [docs/environments.md](docs/environments.md) |
 
@@ -66,3 +67,5 @@ scripts/   dev が呼び出す個々の処理 (状態確認/Wake/Instance起動/
   ここから触るのは「状態確認」「起動」「接続確認」まで。
 - 長時間ジョブ (build/CI/render/encode/AI/backup) は `systemd-inhibit` で自らSuspendを
   ブロックする。自動Suspendは、CPU使用率のような単純な指標を条件にしない。
+  ただしコンテナ内のジョブは inhibitor を持てないので、レンダリング (`ffmpeg` / `blender` / Remotion) と
+  AIエージェントだけは、プロセス名とCPU増分で補助的に検知する (`server/shell/auto-suspend.sh`)。
