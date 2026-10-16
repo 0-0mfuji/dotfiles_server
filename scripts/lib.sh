@@ -14,8 +14,8 @@ load_local_env() {
   fi
 }
 
-# config/projects.conf から target を検索し "host path instance repo vcs" を1行で出力する。
-# instance/repo列が無い行は "-"、vcs列が無い行は "git" を返す。見つからない場合は何も出力せず終了コード1。
+# config/projects.conf から target を検索し "host path instance repo vcs deps studio" を1行で出力する。
+# instance/repo/deps/studio列が無い行は "-"、vcs列が無い行は "git" を返す。見つからない場合は何も出力せず終了コード1。
 lookup_target() {
   local target="$1"
   local conf="${DEV_PROJECTS_CONF:-$REPO_ROOT/config/projects.conf}"
@@ -28,7 +28,9 @@ lookup_target() {
       inst = (NF >= 4) ? $4 : "-"
       repo = (NF >= 5) ? $5 : "-"
       vcs  = (NF >= 6) ? $6 : "git"
-      print $2, $3, inst, repo, vcs
+      deps = (NF >= 7) ? $7 : "-"
+      studio = (NF >= 8) ? $8 : "-"
+      print $2, $3, inst, repo, vcs, deps, studio
       found = 1
       exit
     }
@@ -84,4 +86,30 @@ resolve_target() {
   else
     echo "${keys[0]}"
   fi
+}
+
+# リモートホストのポートへ、SSHトンネルを張る (同じホスト・ポート宛ての生存中のトンネルがあれば再利用する)。
+# 張ったローカルポートを標準出力に出す。失敗したときは何も出さず、終了コード1。
+#   Usage: ensure_tunnel <ssh-host> <remote-port> <first-local-port> <ttl-seconds>
+#   トンネルはSSH接続なので、開いている間はサーバーの自動Suspendを止める。寿命 (ttl) で自動的に閉じる。
+ensure_tunnel() {
+  local host="$1" remote_port="$2" first_port="$3" ttl="$4"
+  local state_dir="$HOME/.config/dev/tunnels" state sp spid port="" p pid
+  mkdir -p "$state_dir"; state="$state_dir/$host-$remote_port"
+  if [ -f "$state" ]; then
+    read -r sp spid < "$state" || true
+    if [ -n "${spid:-}" ] && ps -p "$spid" -o args= 2>/dev/null | grep -q -- "-L ${sp}:127.0.0.1:${remote_port}.* ${host} "; then
+      echo "$sp"; return 0
+    fi
+  fi
+  for p in $(seq "$first_port" $((first_port + 9))); do
+    if ! nc -z 127.0.0.1 "$p" 2>/dev/null; then port="$p"; break; fi
+  done
+  [ -n "$port" ] || { err "空いているローカルポートがありません ($first_port-$((first_port + 9)))"; return 1; }
+  ssh -f -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes \
+      -L "${port}:127.0.0.1:${remote_port}" "$host" "sleep $ttl" </dev/null >/dev/null 2>&1 \
+    || { err "SSHトンネルを張れませんでした"; return 1; }
+  pid="$(pgrep -nf "ssh .*-L ${port}:127.0.0.1:${remote_port}.* ${host} " || true)"
+  echo "$port ${pid:-0}" > "$state"
+  echo "$port"
 }

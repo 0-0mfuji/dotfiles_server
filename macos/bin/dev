@@ -2,8 +2,8 @@
 # dev - Development Serverの状態確認・Wake・Remote Environment起動・
 #       Zed Remote Developmentでのプロジェクトオープンを自動化するlauncher。
 #
-# Usage: dev [--zed] [--web] [--mobile] [--login | --no-login] <target> [project]
-#   既定ではZed、DeepSeek HarnessのWeb UI、スマホ用のQRコードを出す。
+# Usage: dev [--zed] [--web] [--studio] [--mobile] [--login | --no-login] <target> [project]
+#   既定ではZed、DeepSeek HarnessのWeb UI、スマホ用のQRコード、(設定があれば) Remotion Studio を出す。
 #   target一覧は config/projects.conf を参照。
 set -euo pipefail
 
@@ -33,8 +33,9 @@ Usage: dev [options] <target> [project]
 Options:
   --zed         Zedを開く
   --web         DeepSeek HarnessのWeb UIを開く (スマホ用のQRコードも表示する)
+  --studio      Remotion Studio を開く (projects.conf の studio列にポートがある target だけ)
   --mobile      スマホ用のQRコードだけを表示する (Zedもブラウザも開かない)
-  (指定なし)    Zed、Web UI、QRコードのすべて
+  (指定なし)    Zed、Web UI、QRコード、Remotion Studio のすべて
   (複数指定)    指定したものだけ (例: --zed --mobile)
   --login       Claude Code / Codex のログインを、スキップ設定を無視して案内する
   --no-login    ログイン状況の確認を行わない
@@ -43,11 +44,12 @@ Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target=""; project=""; only_zed=0; only_web=0; only_mobile=0; force_login=0; check_login=1
+target=""; project=""; only_zed=0; only_web=0; only_studio=0; only_mobile=0; force_login=0; check_login=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --zed) only_zed=1 ;;
     --web) only_web=1 ;;
+    --studio) only_studio=1 ;;
     --mobile) only_mobile=1 ;;
     --login) force_login=1 ;;
     --no-login) check_login=0 ;;
@@ -63,10 +65,10 @@ if [ -z "$target" ]; then
   usage
   exit 1
 fi
-if [ "$only_zed" = 0 ] && [ "$only_web" = 0 ] && [ "$only_mobile" = 0 ]; then
-  want_zed=1; want_web=1; want_mobile=1
+if [ "$only_zed" = 0 ] && [ "$only_web" = 0 ] && [ "$only_studio" = 0 ] && [ "$only_mobile" = 0 ]; then
+  want_zed=1; want_web=1; want_studio=1; want_mobile=1
 else
-  want_zed=$only_zed; want_web=$only_web; want_mobile=$only_mobile
+  want_zed=$only_zed; want_web=$only_web; want_studio=$only_studio; want_mobile=$only_mobile
   [ "$only_web" = 1 ] && want_mobile=1   # Web UIを開くときは、QRコードも出す
 fi
 
@@ -76,7 +78,7 @@ load_local_env
 key="$(resolve_target "$target" "$project")" || exit 1
 [ "$key" != "$target" ] && log "target: $key"
 
-if ! IFS=' ' read -r remote_host remote_path instance repo vcs < <(lookup_target "$key"); then
+if ! IFS=' ' read -r remote_host remote_path instance repo vcs deps studio < <(lookup_target "$key"); then
   err "unknown target: $key"
   exit 1
 fi
@@ -104,6 +106,12 @@ if ! "$REPO_ROOT/scripts/server-status" "$DEV_SERVER_HOST" 3; then
 fi
 log "development server is up"
 
+# 依存するコンテナ (例: video が呼ぶ voice) を、本体より先に起動する。停止はしない (他のtargetと共有するため)
+if [ "$deps" != "-" ]; then
+  for dep in ${deps//,/ }; do
+    "$REPO_ROOT/scripts/remote-start" "$DEV_SERVER_HOST" "$dep"
+  done
+fi
 if [ -n "$instance" ] && [ "$instance" != "-" ]; then
   "$REPO_ROOT/scripts/remote-start" "$DEV_SERVER_HOST" "$instance"
 fi
@@ -125,6 +133,9 @@ if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ] && { [ "$want_z
 fi
 if [ "$want_web" = 1 ]; then
   "$REPO_ROOT/scripts/open-web" "$remote_host" || true
+fi
+if [ "$want_studio" = 1 ] && [ "$studio" != "-" ]; then
+  "$REPO_ROOT/scripts/open-studio" "$remote_host" "$remote_path" "$studio" || true
 fi
 if [ "$want_mobile" = 1 ]; then
   "$REPO_ROOT/scripts/show-mobile-qr" "$remote_host" "$only_mobile" || true

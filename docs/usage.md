@@ -6,6 +6,7 @@ dev os            # プロジェクトが複数あれば、番号で選ぶ (1つ
 dev lang          # プロジェクトを分けていない target は、そのまま指定する
 dev --zed os sota # Zed だけ
 dev --web os      # Web UI (+ スマホ用のQR)
+dev --studio video # Remotion Studio だけ (projects.conf の studio列があるtarget)
 dev --mobile os   # スマホ用のQRコードだけを表示する
 dev --login os    # Claude Code / Codex のログインを案内する (「今後聞かない」も無視)
 ```
@@ -25,13 +26,14 @@ dev --login os    # Claude Code / Codex のログインを案内する (「今�
 
 1. Development Serverに接続できなければ、Raspberry Pi経由でWake-on-LAN
 2. SSHが通るまで待つ (`DEV_SERVER_WAIT_TIMEOUT` 秒、既定180)
-3. `instance` が設定されていれば、停止中のIncusコンテナを起動
+3. `deps` があれば依存するコンテナを、続けて `instance` の停止中のIncusコンテナを起動 (依存先は止めない)
 4. `repo` が設定されていて、コンテナ内に `path` が無ければ `git clone`
    (Macのsshエージェントを転送して認証する。privateでもOK。秘密鍵はコンテナに置かない)
 5. Claude Code / Codex のログイン状況を表示する (未ログインでも**止まらない**。下記)
 6. DeepSeek Harness の Web UI を開く (`--web` または指定なしのとき)
 7. スマホ用のQRコードを表示する (`--mobile`、`--web`、または指定なしのとき)
-8. ZedのRemote Developmentで `path` を開く (`--zed` または指定なしのとき)
+8. `studio` が設定されていれば、Remotion Studio を開く (`--studio` または指定なしのとき。下記)
+9. ZedのRemote Developmentで `path` を開く (`--zed` または指定なしのとき)
 
 ## ログインの案内
 
@@ -131,6 +133,31 @@ os/sota     os-dev    ~/src/sota      os-dev     git@github.com:you/sota.git   j
 | `instance` | Incusコンテナ名。`-` で無指定 |
 | `repo` | GitHubのクローンURL。`-` で無指定 |
 | `vcs` | `jj` で、clone後に jj を同居させる (下記)。省略または `git` は、gitのまま |
+| `deps` | 依存するIncus instance (カンマ区切り)。`dev` が本体より先に起動する。`-` で無し |
+| `studio` | Remotion Studio のポート。`-` で無し |
+
+### 依存コンテナ (`deps`)
+
+`video` のように、別のコンテナ (`voice-dev` の VOICEVOX) を呼ぶ target は、`deps` に書く。
+
+```
+video     video-dev     ~/src/video      video-dev   -   git   voice-dev   3000
+```
+
+- 起動は `dev` の役目。**コンテナ同士は互いを知らない** (コンテナからホストの `incus` は呼べない)。
+  呼び出し先のURLは、`video` 側の環境変数 (例: `VOICE_URL=http://<voice-devの固定IP>:50021`) で渡し、
+  繋がらなければ、そのエラーを出して終わる。別のVOICEVOXに差し替えられる。
+- 依存先は止めない (他のtargetと共有する)。サーバーが寝れば、全コンテナが止まる。
+- 起動直後はAPIがまだ応答しないことがある。`RUNNING` になっただけでは、VOICEVOXの準備完了ではない。
+
+### Remotion Studio (`studio`)
+
+`dev video` は、`studio` のポートでStudioが動いていなければ、コンテナ内で
+`npx remotion studio --no-open` を起動し (ログは `~/.cache/remotion-studio.log`)、SSHトンネルでMacのブラウザに開く。
+
+- プロジェクトに `package.json` と `node_modules` が必要。依存の導入 (`pnpm i` など) は自分で行う。
+- トンネルはSSH接続なので、開いている間は自動Suspendを止める。既定で4時間後に閉じる (`DEV_WEB_TUNNEL_TTL`)。
+- ローカルポートは3000から空きを探す (`DEV_STUDIO_LOCAL_PORT`)。
 
 1つのtargetに設定できる `repo` は1つ。複数ある場合は、次のとおり、行を足す。
 
