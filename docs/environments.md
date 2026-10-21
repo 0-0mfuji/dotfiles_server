@@ -51,10 +51,11 @@ cd ~/dotfile_infra
 | Claude Code / Codex | ログイン用のCLI (ログイン情報は入れない) |
 | DeepSeek Harness | `shiguredo` 版 (日本語UI)。**コミットを固定**してビルドし、`dsh-web.service` として常駐 |
 | プラグイン | Claude Code / Codex のサブエージェント (本体と同じチェックアウトから `link:` で導入) |
-| DeepSeek Harnessの既定設定 | Ollama Cloudのモデル一覧と既定モデル (`deepSeek-v4.1-flash`) など。`provision/files/web-defaults.yml` から、**無い項目だけ**足す (上書きしない)。**APIキーは含まない** |
+| DeepSeek Harnessの既定設定 | Ollama Cloudのモデル一覧と既定モデル (`deepseek-v4.1-flash:1017`、一覧の先頭) など。`provision/files/web-defaults.yml` から、**無い項目だけ**足す (上書きしない)。**APIキーは含まない** |
 | OCaml (`lang-dev` のみ) | `opam` で `OCAML_VERSION` (`versions.env`) のコンパイラを入れ、`dune` / `ocaml-lsp-server` / `ocamlformat` / `utop` / `alcotest` / `odoc` / `ppx_deriving` を導入。ssh経由の非対話シェルでも使えるよう `~/.profile` と `~/.bashrc` の先頭でPATHを通す。コンパイラ以外は入れた時点の最新で、`--update` で更新 |
 | Rust (`lang-dev` のみ) | `rustup` で `RUST_VERSION` (`versions.env`) を入れ、`clippy` / `rustfmt` / `rust-analyzer` / `rust-src` も導入。`~/.profile` と `~/.bashrc` の先頭でPATHを通す |
 | mdBook (`lang-dev` のみ) | 公式のビルド済みバイナリ。`versions.env` で版とSHA-256を固定 |
+| git-lfs・uv・Python 3.12・turso・gh (`web-dev` のみ) | Webアプリ開発 (igakutteru) の道具。依存はプロジェクトのlockfileで入れる。手順は [web.md](web.md) |
 | ffmpeg など (`video-dev` のみ) | `ffmpeg` / `mediainfo` / `sox` / `imagemagick`、日本語フォント (`fonts-noto-cjk`)、Remotion (Chrome) の実行ライブラリ、`corepack`、`uv` (版とSHA-256を固定)。npm・pipのライブラリはプロジェクトの lockfile で管理する |
 | VOICEVOX ENGINE (`voice-dev` のみ) | CPU版を `/opt/voicevox_engine` に展開 (版とSHA-256を固定)。`voicevox-engine.service` が `:50021` で常駐。認証が無いので、`web_port` は付けない。`video-dev` から固定IPで呼ぶ |
 | Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、`uv`。ヘッドレスのレンダリング用 (`.blend` の作成はMacのGUIで) |

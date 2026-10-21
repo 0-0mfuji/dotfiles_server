@@ -25,6 +25,7 @@ dev os    # サーバーが寝ていれば起こし、コンテナを起動し�
 | 開発環境 (Incusコンテナ) を作る・足す | [docs/environments.md](docs/environments.md) |
 | **GPU** をコンテナから使う (導入・増設・Suspend) | [docs/gpu.md](docs/gpu.md) |
 | **動画制作** (video / voice / blender) を**ゼロから再現する** | [docs/video.md](docs/video.md) |
+| **Webアプリ開発** (web-dev: igakutteru) を**ゼロから再現する** | [docs/web.md](docs/web.md) |
 | `dev` コマンドの使い方、`projects.conf` | [docs/usage.md](docs/usage.md) |
 | AI・ツールを**更新**する (`provision/run --update`, `bump-dsh`) | [docs/environments.md](docs/environments.md) |
 

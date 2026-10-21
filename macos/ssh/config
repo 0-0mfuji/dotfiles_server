@@ -18,6 +18,11 @@
 #       User dev
 #       ProxyJump dev-server
 #
+#   Host web-dev              # Webアプリ開発 (docs/web.md)
+#       HostName 10.10.0.30       # terraform.tfvars の web の ip
+#       User dev
+#       ProxyJump dev-server
+#
 # ~/.ssh/config の先頭に以下が必要 (install.sh が追記する。
 # ~/.ssh/config がシンボリックリンクの場合は自動編集しないので、手動で足す):
 #   Include ~/.ssh/config.d/dotfiles

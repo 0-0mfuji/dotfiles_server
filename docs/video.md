@@ -117,7 +117,7 @@ cd ~/src/video && git init && pnpm install --frozen-lockfile && uv sync
 自分のGitHubリポジトリにして管理するなら、`projects.conf` の `repo` にそのURLを書く (`dev video` が自動cloneする)。
 
 以降は `dev video` だけで、voice-dev と video-dev の起動、Remotion Studio (SSHトンネル)、Zed、Web UI が開く。
-`dev --studio video` なら Studio だけ。
+`dev --preview video` なら Studio だけ。
 
 ## 動作確認
 
@@ -139,7 +139,7 @@ cd ~/src/video && git init && pnpm install --frozen-lockfile && uv sync
 
 ```sh
 dev video            # voice-dev を起こし、video-dev を開く (Zed + Web UI + Studio)
-dev --studio video   # Studio だけ
+dev --preview video  # Studio だけ
 ```
 
 - Remotion Studio のトンネルは、開いている間は自動Suspendを止める。4時間で閉じる (`DEV_WEB_TUNNEL_TTL`)。
@@ -168,7 +168,7 @@ dev --studio video   # Studio だけ
 | `VOICE_URL が未設定` | サーバーの `~/.config/dev/provision.env` に書いて `./provision/run video-dev`。新しいシェルで読み直す |
 | provision が `voicevox: checksum FAILED` | `versions.env` の版とSHA-256が合っているか。ダウンロードが途中で切れていないか (約1.8GB) |
 | provision が `video: apt install FAILED` | ログの失敗したパッケージ名 (Debianの版で名前が違うことがある) を、`VIDEO_PKGS` で直す |
-| Studio が開かない | コンテナの `~/.cache/remotion-studio.log`。プロジェクトに `node_modules` があるか |
+| Studio が開かない | コンテナの `~/.cache/preview-3000.log`。プロジェクトに `node_modules` があるか |
 | 字幕が豆腐になる | `fc-list :lang=ja` が空 -> `./provision/run video-dev` (`fonts-noto-cjk`) |
 | `/srv/media` に書けない | 所有者が root のまま。`incus exec video-dev -- chown dev:dev /srv/media` (provision が自動で行う)。tofu の `media = "rw"` と `apply` 済みかも確認 |
 | `h264_nvenc` が使えない | [gpu.md](gpu.md#nvenc-ffmpeg-のgpuエンコード)。CPUの `libx264` なら書き出せる |
