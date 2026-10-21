@@ -103,7 +103,8 @@ cd ~/src/igakutteru && git lfs pull      # data/ontology.duckdb (LFS)
 
 ### 5. 秘密を置く (Macから)
 
-**Git管理外のファイル。リポジトリにも、チャットにも貼らない。**
+**Git管理外のファイル。リポジトリにも、チャットにも貼らない。** 秘密なので、自動では配置しない (自分で実行する)。
+無くても、clone・インストール・テスト・Viteの起動までは動く。Worker (`pnpm dev`) と、APIキーを使うパイプラインの段階で必要になる。
 
 ```sh
 scp ~/home/igakutteru/.env                 web-dev:~/src/igakutteru/.env
@@ -125,11 +126,15 @@ pnpm --filter web exec playwright install --with-deps chromium     # テスト�
 
 ```sh
 cd ~/src/igakutteru/pipeline
+export UV_HTTP_TIMEOUT=600     # torch のCUDAライブラリは大きく、既定の30秒だとタイムアウトする
+P=.venv/bin/python
 uv venv --python 3.12 .venv
 # torch は、ホストのドライバ550 (CUDA 12.x) に合わせて cu126 の索引から先に入れる (PyPIの既定は CUDA 13 で動かない)
-uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cu126
-uv pip install --python .venv/bin/python -r requirements.txt
-.venv/bin/python -c "import duckdb, torch; print(duckdb.__version__, torch.cuda.is_available())"
+uv pip install --python $P torch --index-url https://download.pytorch.org/whl/cu126
+# owlready2 (sdist) は、ビルド環境の packaging が古く失敗する。先にビルド用を入れ、そのパッケージだけビルド分離を外す
+uv pip install --python $P "setuptools>=77" "packaging>=24.2" wheel
+uv pip install --python $P -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126 --no-build-isolation-package owlready2
+$P -c "import duckdb, torch; print(duckdb.__version__, torch.__version__, torch.cuda.is_available())"   # 1.5.6 2.14.1+cu126 True
 ```
 
 リポジトリの README にある ipadic 辞書の取得と `web/public/ipadic.zip` の作成も、同じ手順で行う (初回のみ)。
@@ -198,13 +203,23 @@ dev --preview web igakutteru
 | `/notes` で `Failed to fetch` | Worker が未起動。ルートで `pnpm dev`。`WEB_ORIGIN` とViteのoriginが一致しているか |
 | `torch.cuda.is_available()` が False | `nvidia-smi` が通るか。torchが CUDA 13 のビルドになっていないか (cu126 の索引で入れ直す) |
 | `playwright install --with-deps` が失敗 | Debian 13 のaptパッケージ名の違い。エラーに出る不足ライブラリを `apt install` する |
+| `requirements.txt` が `Failed to build owlready2` | ビルド環境の `packaging` が古い。上の手順7のとおり、先に `setuptools>=77 packaging>=24.2 wheel` を入れて `--no-build-isolation-package owlready2` |
+| torch の取得が `operation timed out` | `export UV_HTTP_TIMEOUT=600` |
 | `requirements.txt` が解決しない | Python 3.12 か。torch / spacy / transformers の組み合わせ。まず `requirements-control-plane.txt` だけ入れる |
 
-## 実機での確認状況
+## 実機での確認状況 (2026-10-21、web-dev を新規構築)
 
-**このコンテナは、書いてあるだけで、まだ実機で作っていない。** 最初の実行で確かめて、違えば該当の箇所を直し、ここを更新する。
+確認できたこと:
 
-- `install_web` の apt パッケージ名 (`git-lfs` `gh` `zip` `unzip`)、`turso` のtarball、`uv python install 3.12`。
-- Vite が `--host 127.0.0.1 --port 5173` を、`pnpm run dev:web` 経由で受け取るか。
-- Playwright の Chromium (`--with-deps`) が Debian 13 で入るか。
-- `requirements.txt` が Python 3.12 + cu126 の torch で解決できるか。
+- `tofu apply` (追加1・削除0)、`./provision/run web-dev` が `EXIT=0`。node 22.23.3、uv 0.13.1、Python 3.12.15、git-lfs 3.6.1、turso 1.0.34、gh 2.46.0 が入り、GPU (RTX 3070 Ti) も見える。
+- `dev` と同じ経路 (`project-clone`、Macのsshエージェント転送) で、private の igakutteru が `~/src/igakutteru` に clone できる。`git lfs pull` で `data/ontology.duckdb` (567MB) が取れる。
+- `pnpm install --frozen-lockfile` (pnpm 11.0.3 は corepack が取得)、**worker のテスト 462件、web のテスト 673件が通る**。`playwright install --with-deps chromium` が Debian 13 で通る。
+- `dev --preview web igakutteru` で、コンテナ内で `dev:web` (Vite 8) が `--host 127.0.0.1 --port 5173` で起動し、Macの localhost:5173 が 200 (タイトル「医学っている？」)。
+- Python: `.venv` (3.12) に duckdb 1.5.6、torch 2.14.1+cu126 が入り、`torch.cuda.is_available()` が `True`。`requirements.txt` が全部入る (owlready2 は上記の回避策)。
+
+まだ確認していないこと:
+
+- 秘密 (`.env` / `.dev.vars`) を使う Worker (`pnpm dev`: `turso dev` + `wrangler dev`)、APIキーを使うパイプラインの段階。
+- `data/igakutteru.db` の用意 (`build.py` またはMacからのコピー) と、それを使った画面の動作。
+- `pipeline/tests` (pytest)、`pnpm lint`、Playwright のE2E。
+- 自動Suspendの入れ替え (`sudo ./server/install-suspend.sh`) は、まだ。入れ替えるまで、長いビルドは検知されない。
