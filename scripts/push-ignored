@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Macのgitリポジトリの「gitignoreされたファイル」(生成データ・中間ファイルなど) を、コンテナの同じリポジトリへ送る。
+# clone では取れないデータを、Macから持ち込むために使う。圧縮 (zstd) して、バッチごとに転送する。
+#
+# Usage: push-ignored [--dry-run] [--exclude REGEX]... <ssh-host> <local-repo> <remote-repo-dir>
+#   例) scripts/push-ignored --dry-run web-dev ~/home/igakutteru '~/src/igakutteru'
+#       scripts/push-ignored --exclude '^web/public/igakutteru\.db$' web-dev ~/home/igakutteru '~/src/igakutteru'
+#
+# - 秘密 (.env* / .dev.vars / 鍵) と、依存・ビルド成果物・キャッシュ (node_modules / .venv / dist / .wrangler ...) は、既定で送らない。
+#   --exclude で、さらに外せる (拡張正規表現。リポジトリ直下からの相対パスに一致させる)。
+# - 大きいディレクトリ (100MB以上) は、1つずつ別のバッチにする。完了したバッチは記録し、再実行で飛ばす (途中で切れても、続きから)。
+# - 完了記録は ~/.config/dev/push-ignored/<host>-<repo>.done。最初から送り直すときは、このファイルを消す。
+# - 受け側は `tar --skip-old-files` なので、既にあるファイル (gitで取れたもの含む) は上書きしない。
+# - 受け側に zstd と GNU tar が要る (web-dev は provision が入れる)。
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$DIR/lib.sh"
+
+dry=0; excludes=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) dry=1; shift ;;
+    --exclude) excludes+=("${2:?--exclude needs a regex}"); shift 2 ;;
+    -h|--help) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) err "unknown option: $1"; exit 1 ;;
+    *) break ;;
+  esac
+done
+host="${1:?usage: push-ignored [--dry-run] [--exclude REGEX]... <ssh-host> <local-repo> <remote-repo-dir>}"
+repo="${2:?usage: push-ignored ... <ssh-host> <local-repo> <remote-repo-dir>}"
+remote="${3:?usage: push-ignored ... <ssh-host> <local-repo> <remote-repo-dir>}"
+repo="$(cd "$repo" && pwd)"
+git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || { err "not a git repository: $repo"; exit 1; }
+command -v zstd >/dev/null 2>&1 || { err "zstd is required on this machine (brew install zstd)"; exit 1; }
+
+# 既定の除外: 秘密 / 依存・ビルド・キャッシュ / OSのごみ
+default_re='(^|/)(\.env(\..*)?|\.dev\.vars|\.npmrc|\.netrc|id_(rsa|ed25519)[^/]*|[^/]*\.pem|[^/]*\.key)$'
+default_re+='|(^|/)(node_modules|\.venv|venv|__pycache__|\.pytest_cache|\.pnpm-store|\.DS_Store|\.wrangler|dist|storybook-static|\.playwright-mcp|\.mypy_cache|\.ruff_cache|target)(/|$)'
+default_re+='|(^|/)\.claude/(worktrees/|settings\.local\.json)'
+
+work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+state_dir="$HOME/.config/dev/push-ignored"; mkdir -p "$state_dir"
+done_file="$state_dir/$host-$(basename "$repo").done"; touch "$done_file"
+
+git -C "$repo" status --ignored --porcelain 2>/dev/null | sed -n 's/^!! //p' \
+  | grep -v -E "$default_re" > "$work/all.txt" || true
+for re in "${excludes[@]+"${excludes[@]}"}"; do grep -v -E "$re" "$work/all.txt" > "$work/f.txt" || true; mv "$work/f.txt" "$work/all.txt"; done
+[ -s "$work/all.txt" ] || { log "送るものがありません"; exit 0; }
+
+# サイズ (KB)。100MB以上は単独のバッチ、残りは1つにまとめる
+( cd "$repo" && tr '\n' '\0' < "$work/all.txt" | xargs -0 du -sk 2>/dev/null ) | sort -n > "$work/sizes.txt"
+total_kb="$(awk '{s+=$1} END {print s+0}' "$work/sizes.txt")"
+awk -F'\t' '$1 >= 102400 {print $2}' "$work/sizes.txt" > "$work/big.txt"
+if [ -s "$work/big.txt" ]; then grep -v -x -F -f "$work/big.txt" "$work/all.txt" > "$work/misc.txt" || true; else cp "$work/all.txt" "$work/misc.txt"; fi
+
+log "対象: $(wc -l < "$work/all.txt" | tr -d ' ') 件、約 $(awk -v k="$total_kb" 'BEGIN {printf "%.2f", k/1048576}') GB (圧縮前) -> $host:$remote"
+awk -F'\t' '$1 >= 102400 {printf "  %7.0f MB  %s\n", $1/1024, $2}' "$work/sizes.txt" | tail -n 15 >&2
+if [ "$dry" = 1 ]; then log "dry-run: 送りません (除外した秘密・依存・ビルド成果物は、上のリストに含まれません)"; exit 0; fi
+
+send() {  # $1=バッチ名 $2=パス一覧ファイル
+  local name="$1" list="$2" rcs
+  grep -qx "$name" "$done_file" && { log "skip (完了済み): $name"; return; }
+  log "送信: $name"
+  ( cd "$repo" && COPYFILE_DISABLE=1 tar --exclude='.DS_Store' --exclude='._*' -cf - -T "$list" 2>/dev/null ) \
+    | zstd -T0 -3 -q \
+    | ssh -o BatchMode=yes -o ServerAliveInterval=30 "$host" "zstd -d -q | tar -C $remote --skip-old-files --warning=no-unknown-keyword -xf -"
+  rcs=("${PIPESTATUS[@]}")
+  if [ "${rcs[1]}" = 0 ] && [ "${rcs[2]}" = 0 ]; then echo "$name" >> "$done_file"; else err "失敗: $name (再実行すると続きから)"; return 1; fi
+}
+
+[ -s "$work/misc.txt" ] && send "misc" "$work/misc.txt"
+while IFS= read -r p; do
+  printf '%s\n' "$p" > "$work/b.txt"
+  send "$p" "$work/b.txt"
+done < "$work/big.txt"
+log "完了。照合: 件数とサイズを、Mac と $host で比べる (docs/web.md)"

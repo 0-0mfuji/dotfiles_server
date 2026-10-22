@@ -141,38 +141,41 @@ $P -c "import duckdb, torch; print(duckdb.__version__, torch.__version__, torch.
 
 ### 8. データを用意する (Macから持ち込む)
 
-clone では取れない、gitignore されたデータが3つ要る。**秘密ではないので、Macから持ち込める** (合計 約0.9GB)。
-
-| 持ち込むもの | サイズ | 用途 |
-| --- | --- | --- |
-| `data/igakutteru.db` | 392MB | 問題データベース (DuckDB)。`pnpm dev` が `web/public/` にコピーする |
-| `web/public/ipadic.zip` | 15MB | 形態素解析 (Lindera-Wasm) の辞書 |
-| `data/images/` | 502MB | 問題の画像 (`web/public/images` がここへのシンボリックリンク) |
-
-Macで実行する。
+clone では取れない、**gitignore されたデータ**がある (問題DB、辞書、画像、パイプラインの中間ファイルなど)。秘密ではないので、
+Macから持ち込める。[scripts/push-ignored](../scripts/push-ignored) が、圧縮 (zstd) してバッチごとに送る。
 
 ```sh
-cd ~/home/igakutteru
-scp data/igakutteru.db   web-dev:~/src/igakutteru/data/igakutteru.db
-scp web/public/ipadic.zip web-dev:~/src/igakutteru/web/public/ipadic.zip
-# macOS の tar は ._* (AppleDouble) を付けるので COPYFILE_DISABLE=1 で止める
-COPYFILE_DISABLE=1 tar -C data --exclude='.DS_Store' -cf - images | ssh web-dev 'tar -C ~/src/igakutteru/data -xf -'
-ssh web-dev 'cd ~/src/igakutteru && find data/images -name "._*" -delete; ln -sfn ../../data/images web/public/images'
+# Macで実行。まず、何がどれだけ送られるかを確認する
+scripts/push-ignored --dry-run \
+  --exclude '^web/public/igakutteru\.db$' --exclude '(^|/)local\.db' --exclude '^\.claude/' \
+  web-dev ~/home/igakutteru '~/src/igakutteru'
+# 問題なければ、--dry-run を外して実行する (数十分かかる。Macをスリープさせない)
 ```
 
-- 転送後に、`sha256sum` がMacと一致するか確認する。画像は実ファイル数 (3465) で照合する。
-- シンボリックリンクはMacでは絶対パスなので、web-dev では相対パス (`../../data/images`) で作り直す。
-- Vite は起動時に `web/scripts/sync-db.mjs` で `web/public/igakutteru.db` を更新する。起動済みのときは `node web/scripts/sync-db.mjs`。
+- **送らないもの** (既定): 秘密 (`.env*` / `.dev.vars` / 鍵)、`node_modules` / `.venv` / `dist` / `.wrangler` などの依存・ビルド成果物・キャッシュ。
+  `--exclude REGEX` で、さらに外せる。上の例の3つは、Vite が再生成するコピー、`turso dev` が作り直すローカルDB、Mac固有の `.claude/` の設定。
+- 100MB以上のディレクトリは、1つずつ別のバッチ。完了したバッチは `~/.config/dev/push-ignored/web-dev-igakutteru.done` に記録され、
+  **途中で切れても、再実行で続きから**送る。最初から送り直すときは、このファイルを消す。
+- 受け側は `tar --skip-old-files`。既にあるファイル (gitで取れたもの含む) は上書きしない。
+- 受け側に `zstd` が要る (provision が入れる)。
 
-**持ち込まないもの** (UIの開発には要らない。Macの `data/` の約12GB):
+`web/public/images` は、Macでは絶対パスのシンボリックリンクなので、web-dev では相対パスで作り直す。
 
-- パイプラインの実行結果と途中経過: `data/drug_pipeline_runs/` (3.3GB)、`drug_learning_runs/`、`llm_tag_runs/`、`*_batch_requests.jsonl`、`*_progress.jsonl`、`*_backup*.zip` など。
-- キャッシュ: `data/embedding_cache/` (214MB)、`data/.cache/`、`pipeline/.dict-cache/`、`pipeline/.artifacts/`。
-- テスト用: `data/expected.db` (29MB。`pipeline/tests/test_db_snapshot.py` を動かすときだけ)。
-- ローカルDB: `local.db` (23MB、`pnpm dev` の `turso dev` が作り直す)。
+```sh
+ssh web-dev 'cd ~/src/igakutteru && ln -sfn ../../data/images web/public/images'
+```
 
-パイプラインの続きの作業をコンテナで行うときだけ、必要なものを同じ要領で持ち込む。
-Macのデータを使わず、コンテナで作るなら `cd pipeline && .venv/bin/python3 build.py`。
+**照合する** (件数とサイズ。Macのファイルシステムと違うので、`du` ではなく実ファイルで比べる)。
+
+```sh
+# Mac
+cd ~/home/igakutteru && for d in data/question data/drug_pipeline_runs data/ontology_raw data/images; do
+  printf '%s ' $d; find $d -type f ! -name .DS_Store | wc -l | tr -d ' '; done
+# web-dev (件数が同じならOK)
+ssh web-dev 'cd ~/src/igakutteru && for d in data/question data/drug_pipeline_runs data/ontology_raw data/images; do printf "%s " $d; find $d -type f | wc -l; done'
+```
+
+Macのデータを使わず、コンテナで作るなら `cd pipeline && .venv/bin/python3 build.py` (パイプラインの全工程は、APIキーなどの秘密が要る)。
 
 ### 9. 開発サーバーを起動する
 
