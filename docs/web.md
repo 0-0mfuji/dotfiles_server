@@ -139,16 +139,40 @@ $P -c "import duckdb, torch; print(duckdb.__version__, torch.__version__, torch.
 
 リポジトリの README にある ipadic 辞書の取得と `web/public/ipadic.zip` の作成も、同じ手順で行う (初回のみ)。
 
-### 8. データベースを用意する
+### 8. データを用意する (Macから持ち込む)
 
-`data/igakutteru.db` はgitignoreされている。どちらかで用意する。
+clone では取れない、gitignore されたデータが3つ要る。**秘密ではないので、Macから持ち込める** (合計 約0.9GB)。
+
+| 持ち込むもの | サイズ | 用途 |
+| --- | --- | --- |
+| `data/igakutteru.db` | 392MB | 問題データベース (DuckDB)。`pnpm dev` が `web/public/` にコピーする |
+| `web/public/ipadic.zip` | 15MB | 形態素解析 (Lindera-Wasm) の辞書 |
+| `data/images/` | 502MB | 問題の画像 (`web/public/images` がここへのシンボリックリンク) |
+
+Macで実行する。
 
 ```sh
-# a) Macから持ち込む
-rsync -av ~/home/igakutteru/data/igakutteru.db web-dev:~/src/igakutteru/data/
-# b) コンテナで作る
-cd ~/src/igakutteru/pipeline && .venv/bin/python3 build.py
+cd ~/home/igakutteru
+scp data/igakutteru.db   web-dev:~/src/igakutteru/data/igakutteru.db
+scp web/public/ipadic.zip web-dev:~/src/igakutteru/web/public/ipadic.zip
+# macOS の tar は ._* (AppleDouble) を付けるので COPYFILE_DISABLE=1 で止める
+COPYFILE_DISABLE=1 tar -C data --exclude='.DS_Store' -cf - images | ssh web-dev 'tar -C ~/src/igakutteru/data -xf -'
+ssh web-dev 'cd ~/src/igakutteru && find data/images -name "._*" -delete; ln -sfn ../../data/images web/public/images'
 ```
+
+- 転送後に、`sha256sum` がMacと一致するか確認する。画像は実ファイル数 (3465) で照合する。
+- シンボリックリンクはMacでは絶対パスなので、web-dev では相対パス (`../../data/images`) で作り直す。
+- Vite は起動時に `web/scripts/sync-db.mjs` で `web/public/igakutteru.db` を更新する。起動済みのときは `node web/scripts/sync-db.mjs`。
+
+**持ち込まないもの** (UIの開発には要らない。Macの `data/` の約12GB):
+
+- パイプラインの実行結果と途中経過: `data/drug_pipeline_runs/` (3.3GB)、`drug_learning_runs/`、`llm_tag_runs/`、`*_batch_requests.jsonl`、`*_progress.jsonl`、`*_backup*.zip` など。
+- キャッシュ: `data/embedding_cache/` (214MB)、`data/.cache/`、`pipeline/.dict-cache/`、`pipeline/.artifacts/`。
+- テスト用: `data/expected.db` (29MB。`pipeline/tests/test_db_snapshot.py` を動かすときだけ)。
+- ローカルDB: `local.db` (23MB、`pnpm dev` の `turso dev` が作り直す)。
+
+パイプラインの続きの作業をコンテナで行うときだけ、必要なものを同じ要領で持ち込む。
+Macのデータを使わず、コンテナで作るなら `cd pipeline && .venv/bin/python3 build.py`。
 
 ### 9. 開発サーバーを起動する
 
@@ -217,9 +241,10 @@ dev --preview web igakutteru
 - `dev --preview web igakutteru` で、コンテナ内で `dev:web` (Vite 8) が `--host 127.0.0.1 --port 5173` で起動し、Macの localhost:5173 が 200 (タイトル「医学っている？」)。
 - Python: `.venv` (3.12) に duckdb 1.5.6、torch 2.14.1+cu126 が入り、`torch.cuda.is_available()` が `True`。`requirements.txt` が全部入る (owlready2 は上記の回避策)。
 
+- Macから持ち込んだ3つのデータ (DB 392MB、辞書、画像 3465ファイル) が、チェックサム・ファイル数ともに一致する。ヘッドレスChromiumで開くと、アプリが「データベースはインストール済みです」と表示し、Worker (`:8787`) 以外のリクエスト失敗は無い (DBの取得は、テスト終了で中断しただけ)。
+
 まだ確認していないこと:
 
 - 秘密 (`.env` / `.dev.vars`) を使う Worker (`pnpm dev`: `turso dev` + `wrangler dev`)、APIキーを使うパイプラインの段階。
-- `data/igakutteru.db` の用意 (`build.py` またはMacからのコピー) と、それを使った画面の動作。
 - `pipeline/tests` (pytest)、`pnpm lint`、Playwright のE2E。
 - 自動Suspendの入れ替え (`sudo ./server/install-suspend.sh`) は、まだ。入れ替えるまで、長いビルドは検知されない。
