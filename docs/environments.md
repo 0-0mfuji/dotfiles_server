@@ -60,7 +60,7 @@ cd ~/dotfile_infra
 | git-lfs・uv・Python 3.12・turso (`web-dev` のみ) | Webアプリ開発 (igakutteru) の道具。依存はプロジェクトのlockfileで入れる。手順は [web.md](web.md) |
 | ffmpeg など (`video-dev` のみ) | `ffmpeg` / `mediainfo` / `sox` / `imagemagick`、日本語フォント (`fonts-noto-cjk`)、Remotion (Chrome) の実行ライブラリ、`corepack`、`uv` (版とSHA-256を固定)。npm・pipのライブラリはプロジェクトの lockfile で管理する |
 | VOICEVOX ENGINE (`voice-dev` のみ) | CPU版を `/opt/voicevox_engine` に展開 (版とSHA-256を固定)。`voicevox-engine.service` が `:50021` で常駐。認証が無いので、`web_port` は付けない。`video-dev` から固定IPで呼ぶ |
-| Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、`uv`。ヘッドレスのレンダリング用 (`.blend` の作成はMacのGUIで) |
+| Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、uv、Rust、Wasm target、CMake / Ninja / Clang / LLD、Python開発ヘッダー、Git LFS。形状生成ライブラリ開発とヘッドレス処理用。詳細は [video.md](video.md) |
 | 日本語の指示 | `~/.claude/CLAUDE.md` (Claude Code)、`~/.codex/AGENTS.md` (Codex)、`~/.dsh/AGENTS.md` (DeepSeek Harness)。既にあれば上書きしない |
 
 **初回のビルドには、12GiB以上 (推奨16GiB) のメモリが要る。** 4GiBではOOMで失敗し、DeepSeek Harness の `d3627f4` 以降は8GiBでも失敗した。上限であって予約ではないので、大きめでよい。足りないコンテナは、`terraform.tfvars` の

@@ -28,7 +28,7 @@ blender-dev (Blender 5.2、ヘッドレス。必要になるまで作らない) 
 | --- | --- | --- |
 | `video-dev` | ffmpeg / mediainfo / sox / ImageMagick、日本語フォント、Remotion用のChromeライブラリ、Node (corepack)、uv、NVENC | `provision/agents.sh` の `install_video` |
 | `voice-dev` | VOICEVOX ENGINE (CPU版)。`voicevox-engine.service` が常駐。**認証が無いので、Tailnetには出さない** | `install_voicevox` |
-| `blender-dev` | Blender (公式tarball)、uv。`.blend` の作成はMacのGUIで、ここはレンダリング専用 | `install_blender` |
+| `blender-dev` | Blender (公式tarball)、uv、Rust、Wasm target、ネイティブビルドツール。形状生成ライブラリ開発とヘッドレス処理 | `install_blender` |
 
 - **コンテナ同士は互いを知らない。** `video` が `voice` を呼ぶ先は、`VOICE_URL` (環境変数) だけで決まる。起動は `dev` が担当する
   (`projects.conf` の `deps` 列)。コンテナからホストの `incus` は呼べない。
@@ -102,6 +102,24 @@ video     video-dev     ~/src/video      video-dev   -   git   voice-dev   3000
 `repo` は、自分の動画プロジェクトのGitHub URL に変える (`-` なら自動cloneしない)。
 
 ### 5. プロジェクトを置く
+
+岩石・隕石生成ライブラリは `dev blender` で `~/src/generate_rock` に自動cloneする
+(`git@github.com:0-0mfuji/generate_rock.git`)。`~/.ssh/config.local` には
+`video-dev` と同様に `Host blender-dev` / `User dev` / `ProxyJump dev-server` を設定し、
+`HostName` は実際のblenderコンテナのIPに合わせる。
+
+`./provision/run blender-dev` は、Blenderとuvに加え、`versions.env` のRust、
+rustfmt / clippy / rust-analyzer / rust-src、`wasm32-unknown-unknown` target、
+build-essential / pkg-config / CMake / Ninja / Clang / LLD / python3-dev / Git LFSを導入する。
+既存コンテナへの再実行でも追加依存が反映される。
+Rust crate (SDF・メッシュ・OBJ/GLB/STL出力・Wasm binding等) はプロジェクトの
+`Cargo.toml` / `Cargo.lock` で管理し、Python bindingを使う場合のmaturin等は
+`pyproject.toml` / `uv.lock` で管理する。Blender同梱Pythonへの追加依存は別途そのPython版に合わせる。
+
+コンテナを作り直した後は、`tofu apply` → `./provision/run blender-dev` →
+Macで `dev blender` の順に復元する。プロジェクトにlockfileを用意した後は
+`cargo build --locked`、Python環境も使う場合は `uv sync --frozen` で依存を復元する。
+長時間の生成ジョブは `systemd-inhibit` を使ってサーバーの自動Suspendを防ぐ。
 
 雛形は dotfile_infra の `templates/video` (サーバー上の `~/dotfile_infra`) にある。サーバーから `video-dev` へ入れる。
 
