@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Claude Code / Codex のログイン状況を表示し、未ログインなら順にログインを案内する。
+# Claude Code / Codex / GitHub CLI のログイン状況を表示し、未ログインなら順にログインを案内する。
 # 契約していない期間もあるため、ログインしなくても処理は止めずに先へ進む。
 #
 # Usage: agent-login <ssh-host>
 # 環境変数:
 #   DEV_AGENT_CHECK=off            確認そのものを行わない
-#   DEV_SKIP_AGENTS="claude codex" 指定したツールを確認しない
+#   DEV_SKIP_AGENTS="claude codex gh" 指定したツールを確認しない
 #   DEV_FORCE_LOGIN=1              「今後聞かない」の設定を無視して案内する (dev --login)
 set -uo pipefail
 
@@ -18,14 +18,15 @@ host="${1:?usage: agent-login <ssh-host>}"
 
 skip_dir="$HOME/.config/dev/skip-login"
 
-label()     { case "$1" in claude) echo "Claude Code" ;; codex) echo "Codex" ;; esac; }
-login_cmd() { case "$1" in claude) echo "claude auth login" ;; codex) echo "codex login --device-auth" ;; esac; }
+label()     { case "$1" in claude) echo "Claude Code" ;; codex) echo "Codex" ;; gh) echo "GitHub CLI" ;; esac; }
+login_cmd() { case "$1" in claude) echo "claude auth login" ;; codex) echo "codex login --device-auth" ;; gh) echo "gh auth login --hostname github.com" ;; esac; }
 
 # yes | no | missing
 remote_status() {
   case "$1" in
     claude) ssh -o BatchMode=yes "$host" 'command -v claude >/dev/null 2>&1 || { echo missing; exit 0; }; claude auth status 2>/dev/null | grep -q "\"loggedIn\": true" && echo yes || echo no' 2>/dev/null ;;
     codex)  ssh -o BatchMode=yes "$host" 'command -v codex >/dev/null 2>&1 || { echo missing; exit 0; }; codex login status >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null ;;
+    gh)     ssh -o BatchMode=yes "$host" 'command -v gh >/dev/null 2>&1 || { echo missing; exit 0; }; gh auth status --hostname github.com >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null ;;
   esac
 }
 
@@ -36,7 +37,7 @@ is_skipped() {
 }
 
 tools=()
-for t in claude codex; do is_skipped "$t" || tools+=("$t"); done
+for t in claude codex gh; do is_skipped "$t" || tools+=("$t"); done
 [ "${#tools[@]}" -gt 0 ] || exit 0
 
 summary=""; pending=()
@@ -44,7 +45,14 @@ for t in "${tools[@]}"; do
   st="$(remote_status "$t")"; st="${st:-unknown}"
   case "$st" in
     yes)     summary+="$(label "$t"): ログイン済み  " ;;
-    no)      summary+="$(label "$t"): 未ログイン  "; pending+=("$t") ;;
+    no)
+      if [ "$t" = gh ]; then
+        summary+="$(label "$t"): 未ログインまたは認証無効 (期限切れ等)  "
+      else
+        summary+="$(label "$t"): 未ログイン  "
+      fi
+      pending+=("$t")
+      ;;
     missing) summary+="$(label "$t"): 未導入  " ;;
     *)       summary+="$(label "$t"): 確認できません  " ;;
   esac
@@ -56,10 +64,26 @@ log "$summary"
 { [ -t 0 ] && [ -t 1 ]; } || exit 0
 
 for t in "${pending[@]}"; do
+  if [ "$t" = gh ]; then
+    log "トークンが期限切れ・失効済みの場合も、y でトークン作成と再認証へ進めます。"
+  fi
   printf '[dev] %s にログインしますか? [y=今する / Enter=今回は進む / s=今後聞かない] ' "$(label "$t")" >&2
   read -r ans < /dev/tty || ans=""
   case "$ans" in
     y|Y)
+      if [ "$t" = gh ]; then
+        log "個人リポジトリ用の Fine-grained PAT 作成画面をMacで開きます。"
+        # GitHub公式のテンプレートURL。Repository access の指定は未対応なので画面で選ぶ。
+        github_token_url="https://github.com/settings/personal-access-tokens/new?name=dev-container&target_name=0-0mfuji&expires_in=30&contents=write&pull_requests=write&issues=write"
+        log "入力済み: owner=0-0mfuji / 期限=30日 / Contents・Pull requests・Issues=Read and write"
+        log "Repository access は All repositories を選んでください (個人所有の Private・Public)。"
+        log "作成前に所有者が 0-0mfuji であることを確認してください。"
+        log "続く gh の認証方法では Paste an authentication token を選び、作成したトークンを入力してください。"
+        log "トークンはこのターミナルの gh の入力欄だけに貼り付けてください。"
+        if ! open "$github_token_url"; then
+          log "$github_token_url を手動で開いてください。"
+        fi
+      fi
       ssh -t "$host" "$(login_cmd "$t")" || true
       if [ "$(remote_status "$t")" = yes ]; then log "$(label "$t"): ログインしました"; else log "$(label "$t"): ログインできていません (このまま進みます)"; fi
       ;;

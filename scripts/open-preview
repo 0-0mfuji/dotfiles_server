@@ -2,11 +2,12 @@
 # 開発サーバー (Remotion Studio / Vite など) を、コンテナ内で起動し (未起動なら)、SSHトンネル経由でMacのブラウザに開く。失敗しても処理は止めない。
 #
 # Usage: open-preview <ssh-host> <remote-path> <preview>
-#   <preview> : PORT (Remotion Studio: `npx remotion studio`) または PORT=SCRIPT (package.json のスクリプト。例 5173=dev:web)。
+#   <preview> : PORT (Remotion Studio)、PORT=SCRIPT (package.json)、PORT=flutter (Flutter Web)、PORT=zola。
 #               SCRIPT には `--host 127.0.0.1 --port PORT` を渡す (Vite など)。projects.conf の preview列。
+#               storybook にはサーバー側のブラウザ起動を抑止する `--ci --no-open` も渡す。
 # 環境変数: DEV_STUDIO_LOCAL_PORT (既定は、リモートのポートから空きを探す) / DEV_WEB_TUNNEL_TTL (トンネルの寿命・秒、既定14400=4時間)
 #   ※ トンネルはSSH接続なので、開いている間はサーバーの自動Suspendを止める。寿命で自動的に閉じる。
-#   ※ プロジェクトに package.json と node_modules が必要 (依存の導入は利用者が行う: pnpm i / npm ci)。
+#   ※ Flutterは pubspec.yaml と web/、Zolaは config.toml または zola.toml、それ以外は package.json と node_modules が必要。
 #   ※ SCRIPT は corepack 経由の pnpm で実行する (プロジェクトの packageManager の版)。
 set -uo pipefail
 
@@ -25,22 +26,43 @@ ttl="${DEV_WEB_TUNNEL_TTL:-14400}"
 is_up() { ssh -o BatchMode=yes "$host" "curl -s -o /dev/null http://127.0.0.1:$remote_port/" 2>/dev/null; }
 
 if ! is_up; then
-  if ! ssh -o BatchMode=yes "$host" "cd $path && [ -f package.json ] && [ -d node_modules ]" 2>/dev/null; then
-    err "プレビュー: $host:$path に package.json か node_modules がありません (プロジェクトを作るか、依存を導入してください)"
-    exit 0
-  fi
-  label="${script:-Remotion Studio}"
-  log "$label を起動します ($host:$path, port $remote_port)"
-  if [ -n "$script" ]; then
-    cmd="corepack pnpm run $script --host 127.0.0.1 --port $remote_port"
+  if [ "$script" = flutter ]; then
+    if ! ssh -o BatchMode=yes "$host" "cd $path && [ -f pubspec.yaml ] && [ -d web ] && command -v flutter >/dev/null" 2>/dev/null; then
+      err "Flutterプレビュー: $host:$path に pubspec.yaml・web/、またはFlutter SDKがありません (docs/flutter.md を参照)"
+      exit 0
+    fi
+    label="Flutter Web"
+    cmd="flutter run -d web-server --web-hostname 127.0.0.1 --web-port $remote_port"
+  elif [ "$script" = zola ]; then
+    if ! ssh -o BatchMode=yes "$host" "cd $path && { [ -f zola.toml ] || [ -f config.toml ]; } && command -v zola >/dev/null" 2>/dev/null; then
+      err "Zolaプレビュー: $host:$path に設定ファイル、またはZolaがありません (docs/monosite.md を参照)"
+      exit 0
+    fi
+    label="Zola"
+    # 相対URLにして、Mac側の空きポートへトンネルが移ってもリンクを維持する。
+    cmd="zola serve --interface 127.0.0.1 --base-url / --port $remote_port --store-html"
   else
-    cmd="npx remotion studio --port=$remote_port --no-open"
+    if ! ssh -o BatchMode=yes "$host" "cd $path && [ -f package.json ] && [ -d node_modules ]" 2>/dev/null; then
+      err "プレビュー: $host:$path に package.json か node_modules がありません (プロジェクトを作るか、依存を導入してください)"
+      exit 0
+    fi
+    label="${script:-Remotion Studio}"
+    if [ -n "$script" ]; then
+      cmd="corepack pnpm run $script --host 127.0.0.1 --port $remote_port"
+      if [ "$script" = storybook ]; then
+        cmd+=" --ci --no-open"
+      fi
+    else
+      cmd="npx remotion studio --port=$remote_port --no-open"
+    fi
   fi
+  log "$label を起動します ($host:$path, port $remote_port)"
   # ssh を切っても残るよう、setsid + nohup で切り離す。ログは ~/.cache/preview-<PORT>.log
   # (& は npx だけに掛ける。&& の連なり全体に掛けると、サブシェルが ssh の出力を握り続けて、ssh が戻らない)
   ssh -o BatchMode=yes "$host" "mkdir -p ~/.cache && cd $path && { setsid nohup $cmd >> ~/.cache/preview-$remote_port.log 2>&1 < /dev/null & }" </dev/null >/dev/null 2>&1 \
     || { err "$label を起動できませんでした"; exit 0; }
-  for _ in $(seq 1 30); do is_up && break; sleep 2; done
+  attempts=30; [ "$script" = flutter ] && attempts=120
+  for _ in $(seq 1 "$attempts"); do is_up && break; sleep 2; done
   is_up || { err "$label が起動しません (コンテナの ~/.cache/preview-$remote_port.log を確認)"; exit 0; }
 fi
 

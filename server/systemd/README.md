@@ -11,7 +11,7 @@
 | --- | --- |
 | 確立済みのSSH接続がある | Macからの接続、ZedがProxyJump経由でコンテナに繋いでいる間 |
 | `systemd-inhibit` で sleep を **block** しているものがある | ビルド、レンダー、エンコード、バックアップ |
-| AIエージェント・レンダリングのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` が作業中。`ffmpeg` / `blender` / Remotionの `chrome-headless-shell` が書き出し中 (コンテナ内のジョブはホストの inhibitor を持てないため、これで検知する) |
+| AIエージェント・レンダリングのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` / `nanomuse` が作業中。`ffmpeg` / `blender` / Remotionの `chrome-headless-shell` が書き出し中 (コンテナ内のジョブはホストの inhibitor を持てないため、これで検知する) |
 | **GPUが計算中** (使用率が閾値以上) | コンテナ内のPythonでの学習など。VRAMを持つだけの放置ノートブックは対象外。詳細は [docs/gpu.md](../../docs/gpu.md) |
 
 `delay` 型のロック (NetworkManager等) は無視する。マシン全体のCPU使用率は見ない。
@@ -19,7 +19,7 @@
 ### AIエージェント・レンダリングの活動検出
 
 コンテナ内のプロセスは、ホストの `/proc` からそのまま見える。コマンドラインが `claude` / `codex` /
-`dsh web` / `ffmpeg` / `blender` / `chrome-headless-shell` / `remotion` に一致するプロセスについて、**2分ごとの実行間隔で増えたCPU時間**を数える。
+`dsh` / `nanomuse` / `bin.ts web` / `ffmpeg` / `blender` / `chrome-headless-shell` / `remotion` に一致するプロセスについて、**2分ごとの実行間隔で増えたCPU時間**を数える。
 
 - 増えたCPU時間が閾値 (既定300ticks = 約3秒。待機中のWeb UIが、2分あたり約90ticks使うため、それより高くしてある) 以上なら「アクティブ」。作業をやめて60分で寝る。
 - プロンプトを開いたまま放置した `claude` や、常駐する `dsh web` の待機は、CPUをほぼ使わない
@@ -29,7 +29,7 @@
 
 | 設定 (`/etc/default/dev-auto-suspend`) | 既定 | 意味 |
 | --- | --- | --- |
-| `DEV_KEEP_AWAKE_PROCS` | `claude` / `codex` / `bin.ts web` / `ffmpeg` / `blender` / `chrome-headless-shell` / `remotion` | 対象プロセスのコマンドラインに一致する拡張正規表現 |
+| `DEV_KEEP_AWAKE_PROCS` | `claude` / `codex` / `dsh` / `nanomuse` / `bin.ts web` / `ffmpeg` / `blender` / `chrome-headless-shell` / `remotion` | 対象プロセスのコマンドラインに一致する拡張正規表現 |
 | `DEV_KEEP_AWAKE_CPU_TICKS` | `300` | 実行間隔あたりのCPU時間の閾値 (1秒=100ticks) |
 | `DEV_KEEP_AWAKE_GPU_UTIL` | `5` | GPU使用率(%)の閾値。`DEV_GPU_SAMPLES`回 (既定3)、1秒おきに見る |
 

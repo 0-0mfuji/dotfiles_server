@@ -23,6 +23,8 @@ link "$DIR/shell/profile.sh" "$HOME/.config/dev-server-profile.sh"
 grep -qF "dev-server-profile.sh" "$HOME/.profile" 2>/dev/null || \
   echo '[ -f "$HOME/.config/dev-server-profile.sh" ] && . "$HOME/.config/dev-server-profile.sh"' >> "$HOME/.profile"
 
+link "$DIR/bin/boot-windows" "$HOME/.local/bin/boot-windows"
+
 link "$DIR/git/gitconfig" "$HOME/.config/git/dotfiles-server.gitconfig"
 git config --global --get-all include.path 2>/dev/null | grep -qF "dotfiles-server.gitconfig" || \
   git config --global --add include.path "$HOME/.config/git/dotfiles-server.gitconfig"
@@ -30,5 +32,8 @@ git config --global --get-all include.path 2>/dev/null | grep -qF "dotfiles-serv
 echo ""
 echo "auto-suspend (systemd) を有効にするには、sudo権限で次を実行してください:"
 echo "  sudo $DIR/install-suspend.sh"
+echo ""
+echo "Windowsとのデュアルブート (boot-windows) を使うには、GRUBに追加してください (docs/windows.md):"
+echo "  sudo $DIR/grub/setup-windows.sh"
 echo ""
 echo "done."

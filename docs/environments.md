@@ -48,6 +48,7 @@ cd ~/dotfile_infra
 | --- | --- |
 | Node.js | 22系 (DeepSeek Harness の要件 22.19以上)。公式tarballをチェックサム検証して導入 |
 | `git` / `jj` | `jj` は `provision/versions.env` でバージョンとSHA-256を固定 |
+| GitHub CLI (`gh`) | 全コンテナ共通。`dev` 起動時に github.com の認証を案内する |
 | Claude Code / Codex | ログイン用のCLI (ログイン情報は入れない) |
 | DeepSeek Harness | `shiguredo` 版 (日本語UI)。**コミットを固定**してビルドし、`dsh-web.service` として常駐 |
 | プラグイン | Claude Code / Codex のサブエージェント (本体と同じチェックアウトから `link:` で導入) |
@@ -55,7 +56,8 @@ cd ~/dotfile_infra
 | OCaml (`lang-dev` のみ) | `opam` で `OCAML_VERSION` (`versions.env`) のコンパイラを入れ、`dune` / `ocaml-lsp-server` / `ocamlformat` / `utop` / `alcotest` / `odoc` / `ppx_deriving` を導入。ssh経由の非対話シェルでも使えるよう `~/.profile` と `~/.bashrc` の先頭でPATHを通す。コンパイラ以外は入れた時点の最新で、`--update` で更新 |
 | Rust (`lang-dev` のみ) | `rustup` で `RUST_VERSION` (`versions.env`) を入れ、`clippy` / `rustfmt` / `rust-analyzer` / `rust-src` も導入。`~/.profile` と `~/.bashrc` の先頭でPATHを通す |
 | mdBook (`lang-dev` のみ) | 公式のビルド済みバイナリ。`versions.env` で版とSHA-256を固定 |
-| git-lfs・uv・Python 3.12・turso・gh (`web-dev` のみ) | Webアプリ開発 (igakutteru) の道具。依存はプロジェクトのlockfileで入れる。手順は [web.md](web.md) |
+| Flutter / Dart・Turso・Linuxビルドツール (`flutter-dev` のみ) | Node.js / pnpm とHono開発の準備。手順は [flutter.md](flutter.md) |
+| git-lfs・uv・Python 3.12・turso (`web-dev` のみ) | Webアプリ開発 (igakutteru) の道具。依存はプロジェクトのlockfileで入れる。手順は [web.md](web.md) |
 | ffmpeg など (`video-dev` のみ) | `ffmpeg` / `mediainfo` / `sox` / `imagemagick`、日本語フォント (`fonts-noto-cjk`)、Remotion (Chrome) の実行ライブラリ、`corepack`、`uv` (版とSHA-256を固定)。npm・pipのライブラリはプロジェクトの lockfile で管理する |
 | VOICEVOX ENGINE (`voice-dev` のみ) | CPU版を `/opt/voicevox_engine` に展開 (版とSHA-256を固定)。`voicevox-engine.service` が `:50021` で常駐。認証が無いので、`web_port` は付けない。`video-dev` から固定IPで呼ぶ |
 | Blender (`blender-dev` のみ) | 公式tarballを `/opt` に展開 (版とSHA-256を固定)、`uv`。ヘッドレスのレンダリング用 (`.blend` の作成はMacのGUIで) |

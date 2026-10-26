@@ -1,4 +1,7 @@
-# Webアプリ開発環境 (web-dev: igakutteru)
+# Web開発環境 (web-dev: igakutteru / monosite)
+
+Zola製ブログ `monosite` も同じコンテナで開発する。`dev web monosite` で開く。
+Zola・Pagefind・翻訳用Pythonの導入と検証は [monosite.md](monosite.md) を参照。
 
 `web-dev` は、Node + Python のWebアプリ開発用のコンテナ。最初のプロジェクトは
 [igakutteru](https://github.com/0-0mfuji/igakutteru) (医師国家試験の問題検索サービス: React 19 + Vite / Hono on Cloudflare Workers /
@@ -87,11 +90,11 @@ Host web-dev
 [config/projects.conf](../config/projects.conf) の `web/igakutteru` 行は、すでに入っている。
 
 ```
-web/igakutteru  web-dev  ~/src/igakutteru  web-dev  git@github.com:0-0mfuji/igakutteru.git  git  -  5173=dev:web
+web/igakutteru  web-dev  ~/src/igakutteru  web-dev  git@github.com:0-0mfuji/igakutteru.git  git  -  5173=dev:web,6006=storybook
 ```
 
 - `vcs` は `git` のまま。igakutteru は `git worktree` (`.claude/worktrees`) を使うので、jj の colocate にしない。
-- `preview` 列の `5173=dev:web` は、`pnpm run dev:web` (Vite) をコンテナ内で起動して、SSHトンネルでMacのブラウザに開く、の意味。
+- `preview` 列の `5173=dev:web,6006=storybook` は、ViteとStorybookをコンテナ内で起動し、それぞれSSHトンネルでMacのブラウザに開く指定。起動済みなら再利用する。
 
 ### 4. clone して、LFS を取る
 
@@ -133,11 +136,19 @@ uv venv --python 3.12 .venv
 uv pip install --python $P torch --index-url https://download.pytorch.org/whl/cu126
 # owlready2 (sdist) は、ビルド環境の packaging が古く失敗する。先にビルド用を入れ、そのパッケージだけビルド分離を外す
 uv pip install --python $P "setuptools>=77" "packaging>=24.2" wheel
-uv pip install --python $P -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126 --no-build-isolation-package owlready2
+uv pip install --python $P -r requirements.txt -r requirements-control-plane.txt --extra-index-url https://download.pytorch.org/whl/cu126 --no-build-isolation-package owlready2
+# テスト用。pyarrow は reference candidate corpus のテストでも必要
+uv pip install --python $P 'pytest>=9,<10' pyarrow 'mistralai>=2,<3'
+$P -c "import duckdb; c=duckdb.connect(); c.execute(\"INSTALL vss FROM 'https://extensions.duckdb.org'\"); c.execute('LOAD vss')"
 $P -c "import duckdb, torch; print(duckdb.__version__, torch.__version__, torch.cuda.is_available())"   # 1.5.6 2.14.1+cu126 True
 ```
 
 リポジトリの README にある ipadic 辞書の取得と `web/public/ipadic.zip` の作成も、同じ手順で行う (初回のみ)。
+
+2026-10-22 のコードは `mistralai.client.models` (SDK 2系) を使う一方、
+`requirements-ocr-worker.txt` は SDK 1系を指定している。同じ `.venv` に重ねると
+パイプライン本体のOCRテストが壊れるため、このワーカー用requirementsは本体環境に重ねない。
+この制約の不整合は検証記録にも記載している。
 
 ### 8. データを用意する (Macから持ち込む)
 
@@ -180,14 +191,16 @@ Macのデータを使わず、コンテナで作るなら `cd pipeline && .venv/
 ### 9. 開発サーバーを起動する
 
 ```sh
-dev web igakutteru        # Zed + Web UI + Vite (localhost:5173 がMacのブラウザで開く)
-dev --preview web igakutteru    # Vite だけ
+dev web igakutteru        # Zed + Web UI + Vite + Storybook (通常 localhost:5173 / :6006)
+dev --preview web igakutteru    # Vite + Storybook
 ```
 
 Worker (臨床ノートなどのサーバー同期) も使うときは、コンテナ内でルートから `pnpm dev` (`turso dev` + `wrangler dev`)。
 Worker を起動せずに `/notes` を開くと `Failed to fetch` になる。
 
 ## 動作確認
+
+Macとのコード・データ照合およびテスト結果は [2026-10-22 の検証記録](web-validation-2026-10-22.md) を参照。
 
 サーバーでしか確認できない項目。上から順に。
 
@@ -199,14 +212,38 @@ Worker を起動せずに `/notes` を開くと `Failed to fetch` になる。
 | 4 | `git lfs pull` 後に `ls -lh data/ontology.duckdb` | 数百MB (LFSのポインタ=数百バイトではない) |
 | 5 | `pnpm install --frozen-lockfile` | エラーなし |
 | 6 | `pnpm --filter web test` / `pnpm --filter @igakutteru/worker test` | vitest が通る |
-| 7 | `pnpm lint` (web) | エラーなし |
+| 7 | `pnpm --filter web lint` | エラーなし |
 | 8 | `dev --preview web igakutteru` | Macの localhost:5173 が 200、画面が出る |
 | 9 | `pipeline/.venv/bin/python3 -c "import torch; print(torch.cuda.is_available())"` | `True` |
+
+パイプラインも含めて検証する場合は、プロジェクトのルートで以下を実行する。
+`pnpm test` だけでは Worker のテストしか実行されない。
+
+```sh
+pnpm --filter @igakutteru/worker test
+pnpm --filter web test
+pipeline/.venv/bin/python3 -m pytest pipeline --runslow -q
+pnpm design:test
+node --test scripts/agent-staging-preflight.test.mjs
+pnpm --filter web lint
+pnpm lint:design
+pnpm lint:storybook
+pnpm build:web
+pnpm --filter web test:navigation
+pnpm --filter web test:visual
+pnpm --filter web test:question-import-real
+pnpm --filter web test:design
+```
+
+`--runslow` はモデルをロードするテストも含める。公式PDFを使うテストには `data/question/` が必要。
+`test:design` は先に Storybook をビルドするため、そのビルドが失敗するとブラウザテストには進まない。
+実GitHubを書き換える Worker のE2Eは、専用のトークンとテストブランチを指定しない限りスキップされる。
+長時間の検証は `systemd-inhibit` で自動Suspendを抑止する。
 
 ## 日々の使い方
 
 ```sh
-dev web igakutteru        # Zed + Web UI + Vite
+dev web igakutteru        # Zed + Web UI + Vite + Storybook
 dev --preview web igakutteru
 ```
 

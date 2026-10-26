@@ -22,6 +22,7 @@ link() {
 
 mkdir -p "$HOME/.local/bin"
 link "$MACOS_DIR/bin/dev" "$HOME/.local/bin/dev"
+link "$MACOS_DIR/bin/secretary" "$HOME/.local/bin/secretary"
 
 mkdir -p "$HOME/.ssh/config.d" "$HOME/.ssh/sockets"
 chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"

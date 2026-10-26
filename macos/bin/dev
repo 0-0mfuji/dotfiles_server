@@ -29,24 +29,31 @@ Usage: dev [options] <target> [project]
   dev os sota   target "os" の中の、プロジェクト "sota" を開く
   dev os        プロジェクトが複数あれば、番号で選ぶ (1つだけなら、そのまま開く。対話できないときは先頭)
   dev lang      プロジェクトを分けていない target は、そのまま指定する
+  dev secretary 秘書の未設定項目を案内し、NanoMuseを開く (Zedなし)
 
 Options:
   --zed         Zedを開く
+  --nanomuse    secretary専用: NanoMuseを開く（既定）
+  --hermes      secretary専用: Hermesの画面を開く
   --web         DeepSeek HarnessのWeb UIを開く (スマホ用のQRコードも表示する)
-  --preview     開発サーバー (Remotion Studio / Vite) を開く (projects.conf の preview列がある target だけ。--studio も同じ)
+  --preview     開発サーバー (Remotion Studio / Vite / Storybook / Flutter Web / Zola) を開く (projects.conf の preview列がある target だけ。--studio も同じ)
   --mobile      スマホ用のQRコードだけを表示する (Zedもブラウザも開かない)
   (指定なし)    Zed、Web UI、QRコード、プレビューのすべて
+  (secretary)   既定と--web はNanoMuse。--mobileはスマホQR、--previewはSilverBullet、--hermesは旧Hermes
   (複数指定)    指定したものだけ (例: --zed --mobile)
-  --login       Claude Code / Codex のログインを、スキップ設定を無視して案内する
+  --login       ログインをスキップ設定を無視して案内する (secretaryでは秘書の連携設定)
   --no-login    ログイン状況の確認を行わない
 
 Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target=""; project=""; only_zed=0; only_web=0; only_preview=0; only_mobile=0; force_login=0; check_login=1
+target=""; project=""; only_zed=0; only_web=0; only_preview=0; only_mobile=0; force_login=0; check_login=1; secretary_backend=nanomuse; backend_explicit=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --nanomuse|--hermes)
+      [ "$backend_explicit" = 0 ] || { err '--nanomuse / --hermes は一方だけ指定してください'; exit 2; }
+      secretary_backend="${1#--}"; backend_explicit=1; only_web=1 ;;
     --zed) only_zed=1 ;;
     --web) only_web=1 ;;
     --preview|--studio) only_preview=1 ;;
@@ -78,10 +85,27 @@ load_local_env
 key="$(resolve_target "$target" "$project")" || exit 1
 [ "$key" != "$target" ] && log "target: $key"
 
-if ! IFS=' ' read -r remote_host remote_path instance repo vcs deps preview < <(lookup_target "$key"); then
+if ! IFS=' ' read -r remote_host remote_path instance repo vcs deps preview workflow < <(lookup_target "$key"); then
   err "unknown target: $key"
   exit 1
 fi
+
+# 秘書は共通のWake/起動処理を使い、開く画面と設定案内だけ切り替える。
+case "$workflow" in
+  development|-)
+    [ "$backend_explicit" = 0 ] || { err '--nanomuse / --hermes はsecretary専用です'; exit 2; }
+    ;;
+  secretary)
+    if [ "$only_zed" = 1 ] || { [ "$only_mobile" = 1 ] && [ "$secretary_backend" != nanomuse ]; }; then
+      err "secretaryで--zedは使えません。--mobileはNanoMuse専用です"
+      exit 2
+    fi
+    if [ "$only_zed$only_web$only_preview$only_mobile" = 0000 ]; then
+      want_preview=0
+    fi
+    ;;
+  *) err "unknown workflow: $workflow"; exit 2 ;;
+esac
 
 : "${DEV_SERVER_HOST:?DEV_SERVER_HOST is not set (see ~/.config/dev/local.env)}"
 
@@ -122,6 +146,12 @@ if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
   exit 1
 fi
 
+if [ "$workflow" = secretary ]; then
+  DEV_FORCE_LOGIN="$force_login" DEV_SECRETARY_CHECK="$check_login" \
+    "$REPO_ROOT/scripts/secretary-launch" "$remote_host" "$want_web" "$want_preview" "$secretary_backend" "$want_mobile" "$only_mobile"
+  exit
+fi
+
 if { [ -n "$repo" ] && [ "$repo" != "-" ]; } || [ "$vcs" = jj ]; then
   "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "${repo:--}" "${vcs:-git}"
 fi
@@ -135,7 +165,10 @@ if [ "$want_web" = 1 ]; then
   "$REPO_ROOT/scripts/open-web" "$remote_host" || true
 fi
 if [ "$want_preview" = 1 ] && [ "$preview" != "-" ]; then
-  "$REPO_ROOT/scripts/open-preview" "$remote_host" "$remote_path" "$preview" || true
+  IFS=',' read -r -a preview_specs <<< "$preview"
+  for preview_spec in "${preview_specs[@]}"; do
+    "$REPO_ROOT/scripts/open-preview" "$remote_host" "$remote_path" "$preview_spec" || true
+  done
 fi
 if [ "$want_mobile" = 1 ]; then
   "$REPO_ROOT/scripts/show-mobile-qr" "$remote_host" "$only_mobile" || true

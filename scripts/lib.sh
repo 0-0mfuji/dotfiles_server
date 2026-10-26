@@ -14,8 +14,8 @@ load_local_env() {
   fi
 }
 
-# config/projects.conf から target を検索し "host path instance repo vcs deps preview" を1行で出力する。
-# instance/repo/deps/preview列が無い行は "-"、vcs列が無い行は "git" を返す。見つからない場合は何も出力せず終了コード1。
+# config/projects.conf から target を検索し "host path instance repo vcs deps preview workflow" を1行で出力する。
+# instance/repo/deps/preview列が無い行は "-"、vcsは "git"、workflowは "development" を返す。見つからない場合は何も出力せず終了コード1。
 lookup_target() {
   local target="$1"
   local conf="${DEV_PROJECTS_CONF:-$REPO_ROOT/config/projects.conf}"
@@ -30,7 +30,8 @@ lookup_target() {
       vcs  = (NF >= 6) ? $6 : "git"
       deps = (NF >= 7) ? $7 : "-"
       preview = (NF >= 8) ? $8 : "-"
-      print $2, $3, inst, repo, vcs, deps, preview
+      workflow = (NF >= 9) ? $9 : "development"
+      print $2, $3, inst, repo, vcs, deps, preview, workflow
       found = 1
       exit
     }

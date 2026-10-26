@@ -7,6 +7,7 @@ Debian 13 (UEFI)。実際の開発処理はここのIncusコンテナで行う�
 - [構築の流れ](#構築の流れ)
 - [このリポジトリのserver設定](#このリポジトリのserver設定)
 - [自動Suspend](#自動suspend)
+- [Windowsとのデュアルブート](#windowsとのデュアルブート)
 
 ## 構築の流れ
 
@@ -41,3 +42,16 @@ sudo ./server/install-suspend.sh
 [server/systemd/README.md](../server/systemd/README.md)。
 
 > 外出先から起こすには、Raspberry Pi経由のWoLが必要。[raspi.md](raspi.md) を参照。
+
+## Windowsとのデュアルブート
+
+同じサーバーにゲーム用のWindowsを入れ、Debianから `boot-windows` で**次回の起動だけ**Windowsにする。
+Windowsを閉じて起動し直せばDebianに戻る。GRUBの `grub-reboot` を使う (UEFI変数に書かない)。
+
+```sh
+sudo ./server/grub/setup-windows.sh   # GRUBに Windows を追加 (初回のみ)
+boot-windows                          # 次回だけWindows
+```
+
+BIOS設定、Windowsのブートファイルの復旧、このサーバー固有の癖 (NVRAM、CMOSクリア、`B7`)、
+Secure Bootが未達成であることは [windows.md](windows.md)。
