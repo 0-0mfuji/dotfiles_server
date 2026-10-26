@@ -184,11 +184,11 @@ dev --preview video  # Studio だけ
 - `dev --studio video` で、依存の `voice-dev` が起動し、Remotion Studio がMacのlocalhost:3000で開く。
 - ffmpeg の書き出し中は、自動Suspendの判定が `agent` になり、終わると外れる (dry-run、実機の `/proc`)。
 - `shift=true` のdiskデバイスは idmapped マウントになったが、所有者が root だったため、provision が `chown dev:dev /srv/media` する。
+- 2026-10-26: 自動Suspendの導入済みスクリプト・systemd設定がリポジトリと一致し、timerもactive。`ffmpeg` などに加え、`dsh` / `nanomuse` もCPU監視対象になった。
 
 まだ確認していないこと:
 
-- サーバーの `/usr/local/bin/dev-auto-suspend.sh` は古い版のまま。**`sudo ./server/install-suspend.sh`** で入れ替えるまで、ffmpeg などは検知されない。
 - `blender-dev` (作っていない)。
 - Remotion のライセンス条件 (収益化・会社利用)。
 
-> DeepSeek Harness は `d3627f4` に上げた。ビルドに **12GiB以上** (推奨16GiB) のメモリが要る。8GiBの `lang-dev` / `cpu-dev` / `os-dev` を `./provision/run` し直すと、事前チェックで止まる (上限を上げて `tofu apply` する)。
+> DeepSeek Harness `d3627f4` のビルドには **12GiB以上** (推奨16GiB) のメモリが要る。2026-10-26に `lang-dev` / `cpu-dev` / `os-dev` の上限を16GiBへ変更し、全開発コンテナへの反映を完了した。

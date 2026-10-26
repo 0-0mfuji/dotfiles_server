@@ -66,6 +66,12 @@ cd ~/dotfile_infra
 **初回のビルドには、12GiB以上 (推奨16GiB) のメモリが要る。** 4GiBではOOMで失敗し、DeepSeek Harness の `d3627f4` 以降は8GiBでも失敗した。上限であって予約ではないので、大きめでよい。足りないコンテナは、`terraform.tfvars` の
 `memory` を上げてから流す。スクリプトは、ビルドの前に確認して、足りなければ止まる。
 
+2026-10-26に全8コンテナへ反映済み。`cpu-dev` / `lang-dev` / `os-dev` は、サーバーのGit管理外
+`terraform.tfvars` でメモリ上限を8GiBから16GiBへ変更し、OpenTofuで適用した。
+開発用7コンテナのDSHは `d3627f4`、`dsh-web.service` はactive。
+`secretary-dev` は専用provisionでNanoMuseを反映し、サービスactiveとhealth APIのHTTP 200を確認した。
+実行ログはサーバーの `~/.local/state/dev-provision/` に保存する。
+
 **DeepSeek Harnessの既定設定**は、`os-dev` の設定を元にしている。`os-dev` でモデルを足したり変えたりしたら、
 サーバーで取り込み直して、コミットする (既定モデルは、テンプレート側で管理するので取り込まない)。
 
