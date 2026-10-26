@@ -31,15 +31,20 @@ Usage: dev [options] <target> [project]
   dev lang      プロジェクトを分けていない target は、そのまま指定する
   dev secretary 秘書の未設定項目を案内し、NanoMuseを開く (Zedなし)
 
+  dev secretary mobile          スマホ用QR
+  dev secretary notes           SilverBullet
+  dev secretary setup [section]  モデル・外部連携を設定
+  dev secretary doctor          外部連携を診断
+  dev secretary status          状態確認（起動しない）
+  dev secretary timetree-calendars  カレンダー一覧
+
 Options:
   --zed         Zedを開く
-  --nanomuse    secretary専用: NanoMuseを開く（既定）
-  --hermes      secretary専用: Hermesの画面を開く
   --web         DeepSeek HarnessのWeb UIを開く (スマホ用のQRコードも表示する)
   --preview     開発サーバー (Remotion Studio / Vite / Storybook / Flutter Web / Zola) を開く (projects.conf の preview列がある target だけ。--studio も同じ)
   --mobile      スマホ用のQRコードだけを表示する (Zedもブラウザも開かない)
   (指定なし)    Zed、Web UI、QRコード、プレビューのすべて
-  (secretary)   既定と--web はNanoMuse。--mobileはスマホQR、--previewはSilverBullet、--hermesは旧Hermes
+  (secretary)   既定と--web はNanoMuse。--mobileはスマホQR、--previewはSilverBullet
   (複数指定)    指定したものだけ (例: --zed --mobile)
   --login       ログインをスキップ設定を無視して案内する (secretaryでは秘書の連携設定)
   --no-login    ログイン状況の確認を行わない
@@ -48,12 +53,9 @@ Targets are defined in: $REPO_ROOT/config/projects.conf
 EOF
 }
 
-target=""; project=""; only_zed=0; only_web=0; only_preview=0; only_mobile=0; force_login=0; check_login=1; secretary_backend=nanomuse; backend_explicit=0
+target=""; project=""; only_zed=0; only_web=0; only_preview=0; only_mobile=0; force_login=0; check_login=1; section=""; secretary_action=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --nanomuse|--hermes)
-      [ "$backend_explicit" = 0 ] || { err '--nanomuse / --hermes は一方だけ指定してください'; exit 2; }
-      secretary_backend="${1#--}"; backend_explicit=1; only_web=1 ;;
     --zed) only_zed=1 ;;
     --web) only_web=1 ;;
     --preview|--studio) only_preview=1 ;;
@@ -61,9 +63,10 @@ while [ $# -gt 0 ]; do
     --login) force_login=1 ;;
     --no-login) check_login=0 ;;
     -h|--help) usage; exit 0 ;;
-    -*) err "unknown option: $1"; usage; exit 1 ;;
+    -*) err "unknown option: $1"; usage; exit 2 ;;
     *) if [ -z "$target" ]; then target="$1"
        elif [ -z "$project" ]; then project="$1"
+       elif [ "$target" = secretary ] && [ -z "$section" ]; then section="$1"
        else err "unexpected argument: $1"; exit 1; fi ;;
   esac
   shift
@@ -81,6 +84,22 @@ fi
 
 load_local_env
 
+if [ "$target" = secretary ]; then
+  secretary_action="${project:-open}"
+  project=""
+  case "$secretary_action" in open|mobile|notes|setup|doctor|status|timetree-calendars) ;; *) err "unknown secretary command: $secretary_action"; exit 2 ;; esac
+  case "$section" in ''|model|notifications|gmail|outlook|plane|karakeep|notes|timetree) ;; *) err "unknown setup section: $section"; exit 2 ;; esac
+  [ "$secretary_action" = setup ] || [ -z "$section" ] || { err 'sectionはsetup専用です'; exit 2; }
+  if [ "$secretary_action" != open ] && [ "$only_zed$only_web$only_preview$only_mobile" != 0000 ]; then
+    err '秘書のサブコマンドと画面選択オプションは併用できません'; exit 2
+  fi
+  case "$secretary_action" in
+    mobile) want_zed=0; want_web=0; want_preview=0; want_mobile=1; only_mobile=1 ;;
+    notes) want_zed=0; want_web=0; want_preview=1; want_mobile=0; only_preview=1 ;;
+    setup) if [ "$section" = model ] || [ "$section" = notifications ]; then want_zed=0; want_web=1; want_preview=0; want_mobile=0; only_web=1; secretary_action=open; fi ;;
+  esac
+fi
+
 # "dev os sota" / "dev os" / "dev lang" から、projects.conf のキーを1つに決める
 key="$(resolve_target "$target" "$project")" || exit 1
 [ "$key" != "$target" ] && log "target: $key"
@@ -93,11 +112,10 @@ fi
 # 秘書は共通のWake/起動処理を使い、開く画面と設定案内だけ切り替える。
 case "$workflow" in
   development|-)
-    [ "$backend_explicit" = 0 ] || { err '--nanomuse / --hermes はsecretary専用です'; exit 2; }
     ;;
   secretary)
-    if [ "$only_zed" = 1 ] || { [ "$only_mobile" = 1 ] && [ "$secretary_backend" != nanomuse ]; }; then
-      err "secretaryで--zedは使えません。--mobileはNanoMuse専用です"
+    if [ "$only_zed" = 1 ]; then
+      err "secretaryで--zedは使えません"
       exit 2
     fi
     if [ "$only_zed$only_web$only_preview$only_mobile" = 0000 ]; then
@@ -108,6 +126,12 @@ case "$workflow" in
 esac
 
 : "${DEV_SERVER_HOST:?DEV_SERVER_HOST is not set (see ~/.config/dev/local.env)}"
+
+if [ "$workflow" = secretary ] && [ "$secretary_action" = status ]; then
+  "$REPO_ROOT/scripts/server-status" "$DEV_SERVER_HOST" 3 || exit 1
+  ssh "$DEV_SERVER_HOST" "incus list '$instance' -c ns -f csv"
+  exit
+fi
 
 WAIT_TIMEOUT="${DEV_SERVER_WAIT_TIMEOUT:-180}"
 POLL_INTERVAL=5
@@ -147,8 +171,12 @@ if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
 fi
 
 if [ "$workflow" = secretary ]; then
+  case "$secretary_action" in
+    setup|doctor|timetree-calendars)
+      exec "$REPO_ROOT/scripts/secretary-command" "$remote_host" "$secretary_action" "$section" ;;
+  esac
   DEV_FORCE_LOGIN="$force_login" DEV_SECRETARY_CHECK="$check_login" \
-    "$REPO_ROOT/scripts/secretary-launch" "$remote_host" "$want_web" "$want_preview" "$secretary_backend" "$want_mobile" "$only_mobile"
+    "$REPO_ROOT/scripts/secretary-launch" "$remote_host" "$want_web" "$want_preview" "$want_mobile" "$only_mobile"
   exit
 fi
 

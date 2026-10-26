@@ -20,7 +20,7 @@ class LauncherTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         for folder in ('macos/bin', 'scripts', 'config', 'bin', 'home'):
             (self.root / folder).mkdir(parents=True)
-        for path in ('macos/bin/dev', 'macos/bin/secretary', 'scripts/lib.sh', 'scripts/secretary-launch'):
+        for path in ('macos/bin/dev', 'scripts/secretary-command', 'scripts/lib.sh', 'scripts/secretary-launch'):
             shutil.copy2(REPO / path, self.root / path)
         with (self.root / 'scripts/lib.sh').open('a') as out:
             out.write('\nensure_tunnel() { echo "$3"; }\n')
@@ -140,7 +140,7 @@ esac
         self.assertIn(':8787/', self.calls())
 
     def test_nanomuse_uses_authenticated_trial_and_preserves_default(self):
-        result = self.run_dev('--nanomuse', 'secretary')
+        result = self.run_dev('secretary')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('open http://127.0.0.1:8787/#token=fixture-token', self.calls())
         self.assertNotIn(':9119/', self.calls())
@@ -151,7 +151,7 @@ esac
 
     def test_nanomuse_rejects_invalid_token_without_opening_browser(self):
         self.env['TEST_NANOMUSE_TOKEN'] = 'invalid token value'
-        result = self.run_dev('--nanomuse', 'secretary')
+        result = self.run_dev('secretary')
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn('open http', self.calls())
         self.assertNotIn('invalid token value', result.stdout + result.stderr)
@@ -162,26 +162,42 @@ esac
             self.assertEqual(self.run_dev(*args).returncode, 2)
             self.assertEqual(self.calls(), '')
 
-    def test_secretary_nanomuse_alias(self):
-        result = subprocess.run(['bash', str(self.root / 'macos/bin/secretary'), 'nanomuse'],
-                                env=self.env, capture_output=True, text=True)
+
+
+
+    def test_secretary_setup_model_opens_nanomuse(self):
+        result = self.run_dev('secretary', 'setup', 'model')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(':8787/#token=', self.calls())
+        self.assertNotIn("setup 'model'", self.calls())
 
-    def test_hermes_is_explicit_and_started_on_request(self):
-        result = self.run_dev('--hermes', 'secretary')
+    def test_secretary_setup_oauth_uses_owned_tunnel(self):
+        result = self.run_dev('secretary', 'setup', 'gmail')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(':9119/', self.calls())
-        self.assertIn('systemctl start secretary-hermes.service', self.calls())
-        self.assertNotIn(':8787/', self.calls())
+        self.assertIn('SECRETARY_OAUTH_TUNNEL=1', self.calls())
+        self.assertIn('-L 8765:127.0.0.1:8765', self.calls())
+        self.assertIn('try-restart secretary-nanomuse.service', self.calls())
+        self.assertNotIn('open http', self.calls())
 
-    def test_chat_and_model_setup_open_nanomuse(self):
-        for args in (('chat',), ('setup', 'model')):
-            result = subprocess.run(['bash', str(self.root / 'macos/bin/secretary'), *args],
-                                    env=self.env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn("/usr/local/bin/secretary 'chat'", self.calls())
-        self.assertIn(':8787/', self.calls())
+    def test_secretary_status_does_not_wake_or_start(self):
+        result = self.run_dev('secretary', 'status')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("incus list 'secretary-dev'", self.calls())
+        for forbidden in ('server-wake', 'remote-start', 'open http', 'systemctl start'):
+            self.assertNotIn(forbidden, self.calls())
+
+    def test_secretary_commands_validate_before_wake(self):
+        for args in (('secretary', 'hermes'), ('secretary', 'setup', 'gateway'),
+                     ('secretary', 'doctor', 'gmail'), ('secretary', 'setup', 'gmail;id')):
+            result = self.run_dev(*args)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertEqual(self.calls(), '')
+
+    def test_secretary_named_mobile_and_notes(self):
+        self.assertEqual(self.run_dev('secretary', 'mobile').returncode, 0)
+        self.assertIn('nanomuse-mobile.py', self.calls())
+        self.assertEqual(self.run_dev('secretary', 'notes').returncode, 0)
+        self.assertIn(':8300/', self.calls())
 
     def test_preview_selects_only_notes(self):
         result = self.run_dev('--preview', 'secretary')
@@ -215,12 +231,6 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.calls(), '')
 
-    def test_secretary_alias_resolves_symlink_and_delegates(self):
-        alias = self.root / 'bin/secretary'
-        alias.symlink_to(self.root / 'macos/bin/secretary')
-        result = subprocess.run([str(alias)], env=self.env, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.calls().count('open http'), 1)
 
     def test_provision_dispatches_secretary_before_development_tools(self):
         (self.root / 'provision').mkdir()

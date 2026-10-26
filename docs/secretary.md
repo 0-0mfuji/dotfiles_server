@@ -7,15 +7,14 @@ Web UIは英語/中国語、日本語UIの追加はまだ行っていません�
 ## Macから使う
 
 ```bash
-dev secretary                 # NanoMuseのみを開く。未設定の外部連携を案内
-secretary                     # 同じ操作
-secretary chat                # NanoMuseのWebチャット
-secretary setup model         # NanoMuseのモデル設定画面へ
-secretary notes               # SilverBulletを開く（任意）
-secretary doctor              # 外部連携の接続診断
+dev secretary                 # NanoMuseを開く
+dev secretary setup model     # モデル設定画面へ
+dev secretary notes           # SilverBulletを開く（任意）
+dev secretary doctor          # 外部連携の接続診断
+dev secretary status          # 起動せず状態を確認
 ```
 
-`--web` もNanoMuseです。`--nanomuse` は従来の指定との互換用です。
+Macでの入口は `dev` に統一しています。旧 `secretary` コマンド、`--nanomuse`、`--hermes` は廃止しました。
 `--preview` はSilverBulletのみ。通常の起動でSilverBulletの設定は要求しません。
 モデル変更はSettings → Connectionsで行い、Save → Testの順で確認します。
 Ollama CloudはOther OpenAI-compatible endpoint、Base URL `https://ollama.com/v1` を指定します。
@@ -27,7 +26,7 @@ NanoMuse Cloudへのログイン・アカウント作成は不要です。
 スマホを同じTailnetのTailscaleへ接続し、Macで次を実行する。
 
 ```bash
-secretary mobile       # 同じ操作: dev --mobile secretary
+dev secretary mobile   # スマホ用QR
 ```
 
 表示されたQRをスマホのカメラで読み取る。認証トークンはURLのフラグメントに含め、
@@ -50,12 +49,14 @@ NanoMuse本体は従来どおりコンテナ内の127.0.0.1で認証必須。
 | APIキー・会話履歴・Vault | `/home/secretary/.nanomuse`。既存設定を維持 |
 | 外部サービス認証 | `/home/secretary/.config/secretary`。既存MCPを引き継ぐ |
 | TimeTree認証 | 専用サービスユーザーのみが読める従来の保存先 |
-| サービス | `secretary-nanomuse.service` を有効化。Hermesと旧gatewayは停止・自動起動無効 |
+| サービス | `secretary-nanomuse.service` を有効化。旧Hermes・gatewayサービスは廃止 |
 
 旧文書と試用中の文書を統合し、衝突した場合はNanoMuse側の編集を採用します。
 統合前の両フォルダと設定を `/var/backups/secretary/nanomuse-migration-*/` に保存します。
 バックアップはrootのみが読めます。元のSilverBullet認証ファイルは維持します。
-旧Hermesのコード・設定・履歴は削除していません。
+旧Hermesの履歴・認証情報と旧実行ファイルは、コンテナ内のroot専用
+`/var/backups/secretary/retired-hermes-*` に退避します。旧サービスと起動コマンドは撤去します。
+この退避先も暗号化バックアップの対象です。
 
 コンテナ名は引き続き `secretary-dev` です。Macからlocalhost:8787へSSH転送し、
 トークン認証付きで開きます。Suspend方針は変更していません。
@@ -67,13 +68,12 @@ NanoMuse本体は従来どおりコンテナ内の127.0.0.1で認証必須。
 
 ```bash
 cd ~/dotfile_infra
-systemd-inhibit --what=sleep --mode=block --why="Secretary setup" ./secretary/provision secretary-dev
+systemd-inhibit --what=sleep --mode=block --why="Secretary setup" ./provision/run secretary-dev
 ```
 
 既定の導入先はNanoMuseです。NanoMuse 1.0.7のcommitとアーカイブSHA-256を固定し、
 専用venvにインストールします。APIキー・会話履歴は上書きしません。
-`./secretary/provision secretary-dev nanomuse` も同じ操作です。
-`hermes` の明示指定だけは旧Hermesの導入・更新用で、通常は使いません。
+`provision/run` が内部で秘書専用処理へ振り分けます。
 
 NanoMuse Cloud必須ログイン、会話同期、Hub、遠隔操作、更新チェックは無効です。
 Ollama Cloudへ会話を送るAPI通信は発生します。外部連携の認証設定は別途必要です。
@@ -100,13 +100,13 @@ cd ~/dotfile_infra
 tofu init
 tofu plan                 # 既存の変更も含まれる。意図した変更だけか確認
 tofu apply
-systemd-inhibit --what=sleep --mode=block --why="Secretary provisioning" ./secretary/provision
+systemd-inhibit --what=sleep --mode=block --why="Secretary provisioning" ./provision/run secretary-dev
 ```
 
 NanoMuseのソースとSilverBullet 2.12.1の公式バイナリはSHA-256を固定。
 SilverBulletはslim版に相当するRust単体バイナリを使用し、Runtime APIを無効化する。
 再実行しても文書・認証情報を上書きしない。更新は `secretary/versions.env` を変更して再導入する。
-Hermesの `hermes update` はこの固定版管理を迂回するので使わない。
+
 
 ユーザーは分離する。
 
@@ -124,9 +124,9 @@ Plane/KarakeepのAPIキー自体はより強い権限を持つ場合がある。
 ## 3. 既存Plane・Karakeep
 
 ```bash
-secretary setup plane       # APIの接続先URL、APIキー、workspace slug
-secretary setup karakeep    # URLとAPIキー
-secretary doctor
+dev secretary setup plane       # APIの接続先URL、APIキー、workspace slug
+dev secretary setup karakeep    # URLとAPIキー
+dev secretary doctor
 ```
 
 URLはWebのベース（例 `https://plane.example.com`）。`/api/v1` は付けない。
@@ -138,7 +138,7 @@ Karakeepの検索・資料詳細を提供する。ページ送りが必要な応
 Plane CloudのAPI URLは `https://api.plane.so`（Web画面のapp.plane.soとは異なる）。
 PlaneのProfile Settings → Personal Access Tokensでキーを作成する。
 KarakeepはSettings → API Keysで作成する。
-`secretary setup plane` / `karakeep` の完了後、Mac側コマンドがNanoMuseを再起動し、MCPツール一覧を更新する。
+`dev secretary setup plane` / `karakeep` の完了後、Mac側コマンドがNanoMuseを再起動し、MCPツール一覧を更新する。
 サーバーで直接設定した場合は `sudo systemctl restart secretary-nanomuse` を実行する。
 入力候補はprivateな `~/.config/secretary/connection-defaults.json` に配置できる。
 このファイルだけでは連携を有効にせず、APIキーの登録を必要とする。
@@ -155,7 +155,7 @@ scp <ダウンロードしたJSON> secretary-dev:/tmp/secretary-google-client.js
 ssh secretary-dev 'sudo install -o secretary -g secretary -m 600 /tmp/secretary-google-client.json /home/secretary/.config/secretary/google-client.json && rm /tmp/secretary-google-client.json'
 ```
 
-5. `dev secretary` の案内でGmailを選ぶか、`secretary setup gmail` を実行する。
+5. `dev secretary` の案内でGmailを選ぶか、`dev secretary setup gmail` を実行する。
    これらの入口はOAuth callback用のSSHトンネルを自動で張る。
    コンテナへ直接SSHして設定する場合だけ、Macの別ターミナルで次を実行する。
 
@@ -163,7 +163,7 @@ ssh secretary-dev 'sudo install -o secretary -g secretary -m 600 /tmp/secretary-
 ssh -N -L 8765:127.0.0.1:8765 secretary-dev
 ```
 
-6. `secretary setup gmail` を実行し、JSONのパスに
+6. `dev secretary setup gmail` を実行し、JSONのパスに
    `/home/secretary/.config/secretary/google-client.json` を指定する。
    表示されたURLをMacのブラウザで開き、認可する。5分以内に完了する。
 
@@ -178,14 +178,14 @@ Gmail scopeは `gmail.readonly` のみ。テスト公開状態ではrefresh toke
 3. Mobile and desktop applicationsのリダイレクトに
    `http://localhost:8765/callback` を登録する（Web/SPA型ではなく公開クライアント）。
 4. Microsoft Graphの委任アクセス許可に `Mail.Read` を追加する。
-5. `dev secretary` の案内でoutlookを選ぶか、`secretary setup outlook` を実行する。
+5. `dev secretary` の案内でoutlookを選ぶか、`dev secretary setup outlook` を実行する。
    OAuth callback用のSSHトンネルは自動作成される。
 6. Application (client) IDを入力し、表示URLをMacで開いてoutlook.jpで認可する。
 
 公開クライアント＋PKCEを使い、client secretは不要。エンドポイントは個人用の
 `consumers`。要求scopeは `Mail.Read` と `offline_access`。
 Entraアプリ登録が利用できないアカウントでは、この方式の初期設定を完了できない。
-Gmail/Outlookの設定後にNanoMuseを再起動し、`secretary doctor` で確認する。
+Gmail/Outlookの設定後にNanoMuseを再起動し、`dev secretary doctor` で確認する。
 
 ## 6. TimeTree共有予定（非公式・読み取りのみ）
 
@@ -195,9 +195,9 @@ Gmail/Outlookの設定後にNanoMuseを再起動し、`secretary doctor` で確�
 上流コードや書き込み機能をインストールせず、ログインとGETだけを実装している。
 
 ```bash
-secretary timetree-config   # 最初はカレンダーIDを空欄にする
-secretary timetree-calendars  # 有効なIDと名前だけを表示
-secretary timetree-config   # 対象共有カレンダーIDを指定して再設定
+dev secretary setup timetree   # 最初はカレンダーIDを空欄にする
+dev secretary timetree-calendars  # 有効なIDと名前だけを表示
+dev secretary setup timetree   # 対象共有カレンダーIDを指定して再設定
 ```
 
 設定済みの場合、起動中だけ30分間隔で取得。スリープから復帰しても過去分通知は保証しない。
@@ -222,7 +222,7 @@ NanoMuseの初期指示は `~/.nanomuse/config.toml` のagent.instructionsに設
 Karakeepから旅行の資料を探して、plans/ にリンク付きの計画書を作って。
 ```
 
-通知先はNanoMuseのChannelsで設定する。旧Hermes gatewayは自動起動しない。
+通知先はNanoMuseのChannelsで設定する。通知設定もNanoMuseの画面で行う。
 **自動Suspend設定は変更しない。起動中のみ通知する。**
 
 暗号化バックアップ（SilverBulletログイン設定後）:
@@ -232,7 +232,7 @@ ssh secretary-dev 'sudo /opt/secretary/backup <ageの公開recipient>'
 # 表示された /var/backups/secretary/backup-....age を管理者として安全な保存先へ転送
 ```
 
-実行中のサービスを一時停止し、文書・NanoMuseと旧Hermesの状態・OAuth認証・TimeTree認証・
+実行中のサービスを一時停止し、文書・NanoMuseの状態・退避済みHermesデータ・OAuth認証・TimeTree認証・
 SilverBulletログインをageで暗号化する。終了時に元々起動していたサービスだけ再開する。
 復号鍵はコンテナに置かない。構築用コード・ダウンロード済みランタイムは対象外。
 定期バックアップや外部転送は自動登録しない。
@@ -266,9 +266,9 @@ tofu validate
 Mac launcherの検証: `python3 -m unittest discover -s tests -v`。
 対話での設定開始・スキップ・`--login`による再案内も擬似端末で検証する。
 
-## 旧Hermesへ一時的にアクセスする場合
+## 旧Hermesの保管データ
 
-`secretary hermes` または `dev --hermes secretary` で旧サービスを起動できます。
-その後の停止は `ssh secretary-dev 'sudo systemctl stop secretary-hermes secretary-gateway'`。
-通常のdev secretaryはHermesを起動しません。導入・適用記録は
-[2026-10-26の記録](secretary-deployment-2026-10-26.md)を参照してください。
+旧サービスの起動経路は廃止しました。履歴・認証情報はroot専用の
+`/var/backups/secretary/retired-hermes-*` に保存します。必要なデータを取り出す場合も、
+認証情報を文書フォルダへ置かないでください。過去の適用経緯は
+[導入記録](secretary-deployment-2026-10-26.md)に残しています。

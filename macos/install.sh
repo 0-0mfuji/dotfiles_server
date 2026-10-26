@@ -22,7 +22,10 @@ link() {
 
 mkdir -p "$HOME/.local/bin"
 link "$MACOS_DIR/bin/dev" "$HOME/.local/bin/dev"
-link "$MACOS_DIR/bin/secretary" "$HOME/.local/bin/secretary"
+# 廃止した管理対象リンクだけを外す。秘書もdevから操作する。
+if [ -L "$HOME/.local/bin/secretary" ] && [ "$(readlink "$HOME/.local/bin/secretary")" = "$MACOS_DIR/bin/secretary" ]; then
+  rm "$HOME/.local/bin/secretary"
+fi
 
 mkdir -p "$HOME/.ssh/config.d" "$HOME/.ssh/sockets"
 chmod 700 "$HOME/.ssh" "$HOME/.ssh/sockets"

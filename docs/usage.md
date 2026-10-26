@@ -228,9 +228,9 @@ Macで動き、ファイル・Git・ターミナル・ビルドはコンテナ�
 
 ### 秘書（NanoMuse）
 
-`dev secretary`（または `secretary`）でNanoMuseを開く。
-Chatで会話し、Libraryで文書を確認する。`secretary notes` は同じ文書をSilverBulletで開く。
-設定手順は[秘書の手順](secretary.md)を参照。Hermesの旧設定は保持し、自動起動は無効にしている。
+`dev secretary`でNanoMuseを開く。
+Chatで会話し、Libraryで文書を確認する。`dev secretary notes` は同じ文書をSilverBulletで開く。
+設定手順は[秘書の手順](secretary.md)を参照。旧Hermesの履歴・認証情報はroot専用領域へ退避し、旧起動経路は廃止した。
 
-スマホのブラウザ用QR: `secretary mobile`（`dev --mobile secretary`）。スマホのTailscaleを接続して読み取る。
+スマホのブラウザ用QR: `dev secretary mobile`。スマホのTailscaleを接続して読み取る。
 QRは認証情報を含むので共有しない。
