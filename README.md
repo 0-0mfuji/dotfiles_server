@@ -20,6 +20,7 @@ dev os    # サーバーが寝ていれば起こし、コンテナを起動し�
 | やりたいこと | ドキュメント |
 | --- | --- |
 | Macをセットアップする / **Macをリセットしたときの復旧** | [docs/macos.md](docs/macos.md) |
+| **Arch Linux** をクライアントとしてセットアップする | [docs/arch.md](docs/arch.md) |
 | Development Server (Debian) を構築する | [docs/server.md](docs/server.md) |
 | **Windows** をデュアルブートで同居させ、`boot-windows` で切り替える | [docs/windows.md](docs/windows.md) |
 | Raspberry Pi (Wake-on-LAN) を設定する | [docs/raspi.md](docs/raspi.md) |

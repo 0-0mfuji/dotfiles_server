@@ -29,9 +29,9 @@
 #   Include ~/.ssh/config.local
 
 Host *
+    IgnoreUnknown UseKeychain
     AddKeysToAgent yes
     UseKeychain yes
-    IgnoreUnknown UseKeychain
     ServerAliveInterval 30
     ServerAliveCountMax 3
     ControlMaster auto
