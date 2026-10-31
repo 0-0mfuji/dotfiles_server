@@ -3,6 +3,7 @@
 #
 # Usage: open-preview <ssh-host> <remote-path> <preview>
 #   <preview> : PORT (Remotion Studio)、PORT=SCRIPT (package.json)、PORT=flutter (Flutter Web)、PORT=zola。
+#               末尾の @/PATH?QUERY で表示先を指定できる (省略時 /)。
 #               SCRIPT には `--host 127.0.0.1 --port PORT` を渡す (Vite など)。projects.conf の preview列。
 #               storybook にはサーバー側のブラウザ起動を抑止する `--ci --no-open` も渡す。
 # 環境変数: DEV_STUDIO_LOCAL_PORT (既定は、リモートのポートから空きを探す) / DEV_WEB_TUNNEL_TTL (トンネルの寿命・秒、既定14400=4時間)
@@ -18,8 +19,19 @@ source "$DIR/lib.sh"
 host="${1:?usage: open-preview <ssh-host> <remote-path> <preview>}"
 path="${2:?usage: open-preview <ssh-host> <remote-path> <preview>}"
 spec="${3:?usage: open-preview <ssh-host> <remote-path> <preview>}"
-remote_port="${spec%%=*}"
-script=""; [ "$spec" != "$remote_port" ] && script="${spec#*=}"
+preview_path="/"
+launch_spec="$spec"
+if [[ "$spec" == *@* ]]; then
+  launch_spec="${spec%%@*}"
+  preview_path="${spec#*@}"
+  case "$preview_path" in
+    //*) err "preview の表示先は / で始まるローカルパスを指定してください: $spec"; exit 0 ;;
+    /*) ;;
+    *) err "preview の表示先は / で始まるローカルパスを指定してください: $spec"; exit 0 ;;
+  esac
+fi
+remote_port="${launch_spec%%=*}"
+script=""; [ "$launch_spec" != "$remote_port" ] && script="${launch_spec#*=}"
 case "$remote_port" in ''|*[!0-9]*) err "preview の指定が不正です: $spec (PORT または PORT=SCRIPT)"; exit 0 ;; esac
 ttl="${DEV_WEB_TUNNEL_TTL:-14400}"
 
@@ -68,6 +80,6 @@ fi
 
 port="$(ensure_tunnel "$host" "$remote_port" "${DEV_STUDIO_LOCAL_PORT:-$remote_port}" "$ttl")" || exit 0
 log "${label:-プレビュー}: localhost:$port -> $host:$remote_port (${ttl}秒で自動的に閉じます)"
-url="http://127.0.0.1:${port}/"
+url="http://127.0.0.1:${port}${preview_path}"
 if command -v open >/dev/null 2>&1; then open "$url"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url"; else echo "$url"; fi
 exit 0

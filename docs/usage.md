@@ -188,6 +188,7 @@ video     video-dev     ~/src/video      video-dev   -   git   voice-dev   3000
 - 起動のしかた: `PORT` だけなら `npx remotion studio --port=PORT --no-open` (動画)。`PORT=SCRIPT` なら `corepack pnpm run SCRIPT --host 127.0.0.1 --port PORT` (Vite など)。
 - `PORT=flutter` は `flutter run -d web-server --web-hostname 127.0.0.1 --web-port PORT`。`pubspec.yaml` と `web/` が必要。
 - 複数のプレビューはカンマ区切りで指定する。`5173=dev:web,6006=storybook` ならWebアプリとStorybookを両方開く。`dev --preview web igakutteru` でも両方が対象。
+- 表示先は末尾の `@/PATH?QUERY` で指定できる。例: `5174=dev@/volume.html?preset=high`。省略時は `/` を開く。パス・クエリには空白やカンマを直接含めず、必要なら URL エンコードする。
 - `PORT=storybook` はサーバー側でブラウザを開かないよう `--ci --no-open` も渡す。
 - 例: `video ... 3000` (Remotion Studio)、`web/igakutteru ... 5173=dev:web,6006=storybook` (Vite + Storybook)、`flutter/harmonic ... 7357=flutter`。
 

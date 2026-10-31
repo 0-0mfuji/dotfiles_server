@@ -292,7 +292,9 @@ dev --preview web igakutteru
 ## Flow の GPU 描画と性能計測
 
 `dev web flow-aligned-painterly-cloud-rendering` は Vite をコンテナ内の 5174 番で起動し、
-SSH トンネルで Mac のブラウザに開く。この画面は Mac の GPU で描画する。
+SSH トンネルで Mac のブラウザに `/volume.html?preset=high` を開く。
+最新の体積雲の実装を high プリセットで表示する。この画面は Mac の GPU で描画する。
+`/` は初期の W1 実装で、体積雲とは別のページ。
 
 RTX 3070 Ti での計測はコンテナ内で実行する。
 
