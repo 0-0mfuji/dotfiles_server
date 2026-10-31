@@ -288,3 +288,24 @@ dev --preview web igakutteru
 - 秘密 (`.env` / `.dev.vars`) を使う Worker (`pnpm dev`: `turso dev` + `wrangler dev`)、APIキーを使うパイプラインの段階。
 - `pipeline/tests` (pytest)、`pnpm lint`、Playwright のE2E。
 - 自動Suspendの入れ替え (`sudo ./server/install-suspend.sh`) は、まだ。入れ替えるまで、長いビルドは検知されない。
+
+## Flow の GPU 描画と性能計測
+
+`dev web flow-aligned-painterly-cloud-rendering` は Vite をコンテナ内の 5174 番で起動し、
+SSH トンネルで Mac のブラウザに開く。この画面は Mac の GPU で描画する。
+
+RTX 3070 Ti での計測はコンテナ内で実行する。
+
+```sh
+cd ~/src/Flow-Aligned-Painterly-Cloud-Rendering-for-Interactive-Web-Experiences
+npm run build
+npm run perf
+```
+
+Flow の性能計測は既定で実機 GPU を要求し、ソフトウェア描画なら失敗する。
+`experiments/volume/perf.json` の `environment` が NVIDIA を示すことを確認する。
+画像回帰テストは既定の SwiftShader を維持する。比較用のソフトウェア計測は
+`CHROME_GPU=swiftshader npm run perf -- --out experiments/volume/perf-swiftshader.json`。
+
+描画ライブラリは `dotfile_infra` の `provision/agents.sh` で管理する。
+サーバーでそのリポジトリを `git pull --ff-only` した後、`./provision/run web-dev` を実行する。

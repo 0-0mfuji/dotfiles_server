@@ -152,3 +152,10 @@ ffmpeg -i in.mp4 -c:v h264_nvenc -preset p5 -cq 23 out.mp4
 | `cuInit=999` / コンテナに `/dev/nvidia-uvm` が無い | ホストで `nvidia_uvm` が未ロードのまま、コンテナが起動した。ホストで `sudo nvidia-modprobe -u -c=0` してから `incus restart <コンテナ>` (恒久対策: `cd ~/dotfile_infra/host && sudo ./setup.sh 35` を再実行すると、起動時に自動で用意される) |
 | `torch.cuda.is_available()` が False | `nvidia-smi` が通るか。pipが、CPU版のtorchを入れていないか |
 | 復帰後にGPUが見えない | サーバーを再起動する。`journalctl -u nvidia-resume` (sudo) を確認 |
+
+## ヘッドレスブラウザの WebGL
+
+`nvidia-smi` や CUDA の成功だけでは、ブラウザの実機描画は確認できない。
+`web-dev` は `dotfile_infra/provision` で NVIDIA の OpenGL / EGL / Vulkan ライブラリを導入する。
+Chromium は `--enable-gpu --use-gl=angle --use-angle=vulkan` で起動し、WebGL の実際の renderer を確認する。
+Flow の起動と計測は [web.md](web.md#flow-の-gpu-描画と性能計測) を参照。
