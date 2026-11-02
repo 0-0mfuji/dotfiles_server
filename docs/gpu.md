@@ -159,3 +159,28 @@ ffmpeg -i in.mp4 -c:v h264_nvenc -preset p5 -cq 23 out.mp4
 `web-dev` は `dotfile_infra/provision` で NVIDIA の OpenGL / EGL / Vulkan ライブラリを導入する。
 Chromium は `--enable-gpu --use-gl=angle --use-angle=vulkan` で起動し、WebGL の実際の renderer を確認する。
 Flow の起動と計測は [web.md](web.md#flow-の-gpu-描画と性能計測) を参照。
+
+## DeepSeek Harness のサンドボックスから使う
+
+Web UI / ACP は、専用 PATH の `bwrap` ラッパー経由で GPU デバイスを公開する。
+対話 CLI は `dsh-gpu` を使う (`pnpm dsh` の直接起動には専用 PATH がない)。
+
+```sh
+# サーバー: dotfile_infra を push 済みの版に更新してから反映
+cd ~/dotfile_infra
+git pull --ff-only
+./provision/run --gpu-sandbox
+# コンテナ: CLI
+dsh-gpu --help
+```
+
+`dotfile_infra/provision/files/dsh-bwrap` は既存の隔離オプションを維持し、
+存在する NVIDIA の GPU / ctl / uvm / uvm-tools / modeset と `/dev/dri/renderD*` の
+キャラクタデバイスだけを `--dev-bind` する。`/dev` 全体、DRM card、
+Docker ソケット、管理用 nvidia-caps は公開しない。root 権限や capability は追加しない。
+ファイルシステムの読み取り専用化、workspace の書き込み範囲、PID 隔離は従来どおり。
+GPU ドライバの ioctl へのアクセスは増えるため、GPU 自体の隔離や VRAM の分離は保証しない。
+GPU が割り当てられていないコンテナにはデバイスを追加しない。
+
+設定変更時には `dsh-web.service` を再起動する。既存 ACP は再接続が必要。
+適用後の新しいコマンドで `nvidia-smi` を確認する。
