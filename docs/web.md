@@ -320,3 +320,18 @@ Flow1 の `/volume.html` や `preset=high` は使用しない。
 公式アセットは `public/assets/official/` を使用する。
 デモアセット未生成時に既定の `asset=demo` で開くと、Vite の HTML フォールバックを
 密度バイナリとして解釈して形式エラーになるため、公式アセットを明示する。
+
+#### Flow2 の公式実装を調べるためのツール
+
+`web-dev` のプロビジョニングは C++20 のビルド環境、CMake、`glslc`、
+Vulkan ヘッダとリンク用ライブラリ、GLFW の X11 / Wayland 開発依存を導入する。
+公式ソースの Mandrill とその依存は、公式リポジトリのチェックアウトで
+`git submodule update --init --recursive` を実行して取得する。
+
+Vulkan ヘッダと GPU の対応 API は別。現在の RTX 3070 Ti とドライバ 550.163.01 は
+デバイス API 1.3.277 を報告するため、Vulkan 1.4 を要求する公式レンダラの実行条件は満たさない。
+
+学習・評価用の PyTorch、NumPy、SciPy、tqdm、matplotlib、OpenEXR、
+flip-evaluator は Flow2 または公式実装のプロジェクト環境に入れる。
+PyTorch の CUDA 版は既存環境と揃える。データセット生成には Blender の Python
+（bpy、mathutils）を使い、生成した EXR を学習環境から参照する。
