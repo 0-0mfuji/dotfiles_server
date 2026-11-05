@@ -71,6 +71,15 @@ esac
             self.assertNotIn(forbidden, calls)
         self.assertNotIn(' setup ', calls)  # non-interactive runs never launch setup
 
+    def test_secretary_dsh_opens_own_web_without_nanomuse(self):
+        result = self.run_dev('secretary', 'dsh')
+        calls = self.calls()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('sudo systemctl start dsh-web.service', calls)
+        self.assertIn('open-web secretary-dev', calls)
+        self.assertNotIn('secretary-nanomuse.service', calls)
+        self.assertNotIn('agent-login', calls)
+
     def interactive_dev(self, args, answer):
         master, slave = os.openpty()
         def controlling_terminal():

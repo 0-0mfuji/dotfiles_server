@@ -33,6 +33,7 @@ Usage: dev [options] <target> [project]
 
   dev secretary mobile          スマホ用QR
   dev secretary notes           SilverBullet
+  dev secretary dsh             DeepSeek Harnessを開く
   dev secretary setup [section]  モデル・外部連携を設定
   dev secretary doctor          外部連携を診断
   dev secretary status          状態確認（起動しない）
@@ -87,7 +88,7 @@ load_local_env
 if [ "$target" = secretary ]; then
   secretary_action="${project:-open}"
   project=""
-  case "$secretary_action" in open|mobile|notes|setup|doctor|status|timetree-calendars) ;; *) err "unknown secretary command: $secretary_action"; exit 2 ;; esac
+  case "$secretary_action" in open|mobile|notes|dsh|setup|doctor|status|timetree-calendars) ;; *) err "unknown secretary command: $secretary_action"; exit 2 ;; esac
   case "$section" in ''|model|notifications|gmail|outlook|plane|karakeep|notes|timetree) ;; *) err "unknown setup section: $section"; exit 2 ;; esac
   [ "$secretary_action" = setup ] || [ -z "$section" ] || { err 'sectionはsetup専用です'; exit 2; }
   if [ "$secretary_action" != open ] && [ "$only_zed$only_web$only_preview$only_mobile" != 0000 ]; then
@@ -172,6 +173,10 @@ fi
 
 if [ "$workflow" = secretary ]; then
   case "$secretary_action" in
+    dsh)
+      ssh "$remote_host" 'sudo systemctl start dsh-web.service'
+      DEV_DSH_USER=secretary "$REPO_ROOT/scripts/open-web" "$remote_host"
+      exit ;;
     setup|doctor|timetree-calendars)
       exec "$REPO_ROOT/scripts/secretary-command" "$remote_host" "$secretary_action" "$section" ;;
   esac

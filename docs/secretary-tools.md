@@ -8,6 +8,7 @@
 
 同じ `secretary-dev` に以下を導入する。新しいコンテナや公開ポートは追加しない。
 
+- DeepSeek Harness（既存開発環境と同じ固定版）を秘書ユーザーで追加。`dev secretary dsh` から開く。
 - NanoMuse 1.0.7を維持。モデル接続・Vault・会話履歴・文書を保持。
 - PLaMo 3 Translate 2B。公式モデルrevisionを固定。CUDA 12.6のPyTorchを専用venvへ導入。
 - Karakeep-toolの公開済み導入用コミットを固定してクローン。Macの元checkoutは変更しない。
@@ -50,6 +51,7 @@ cpu       = 4
 memory    = "16GiB"
 disk_size = "120GiB"
 gpu       = true
+nesting   = true  # DSHのbubblewrapサンドボックスに必要
 ```
 
 Macの `data/` は確認時点で約43GB。モデル・venv・キャッシュに加え、他の書籍出力も置くため、
@@ -173,3 +175,31 @@ incus exec secretary-dev -- runuser -u secretary -- python3 /opt/secretary/secre
 NanoMuseで短文翻訳 → 新規ファイルとjob完了 → `nvidia-smi` でVRAM解放を確認する。
 Karakeepは少件数の検索、EPUBは単一記事、辞書は小さな入力で確認してから対象を広げる。
 provisionを再実行し、モデル設定・履歴・文書・スキルが維持されることも確認する。
+
+## DSHを併用する
+
+サーバー更新・plan/apply・`./provision/run secretary-dev` の同じ手順でDSHも導入する。
+DSHのビルドには12GiB以上、推奨16GiBが必要。secretaryユーザーへsudo権限は付けない。
+DSHのsandboxに必要な `secretary.nesting = true` を適用し、必要ならジョブ終了後にコンテナを再起動する。
+
+```bash
+# Mac
+dev secretary       # NanoMuse
+dev secretary dsh   # DeepSeek Harness（127.0.0.1:3080へSSH転送）
+```
+
+DSHは `dsh-web.service` でsecretaryユーザーとして常駐する。新しい外部公開ポートは追加しない。
+初回はDSHのWeb UIでOllama Cloud等の認証を設定する。NanoMuseのAPIキーはコピーしない。
+共有されるものは文書、専用MCP、Karakeep-tool、129スキル。会話履歴とモデル認証は別管理。
+DSH用スキルは `~secretary/.dsh/skills/` に置き、MCPツール名をDSH形式へ変換する。
+既存DSHスキルを編集した場合は自動上書きせず、再導入を停止して整合を求める。
+NanoMuseのSentinel承認はDSHへ引き継がれないため、DSHの権限設定と秘書用指示で運用する。
+外部更新・削除は依頼の対象範囲を確認し、承認が不足する場合は会話で確認する。
+DSHからのGPU処理も他の翻訳・OCR・動画処理とVRAMを共有する。
+暗号化バックアップにはDSHの認証・プロファイル・会話履歴も含める。
+
+コンテナ内の対話CLIは次を使う（標準入力・出力を維持できる端末から実行）。
+
+```bash
+sudo -H -u secretary /usr/local/bin/secretary-dsh
+```

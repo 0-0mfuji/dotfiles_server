@@ -25,7 +25,13 @@ if [ "$code" != 401 ] && [ "$code" != 200 ]; then
 fi
 
 # ログに出るURLの形は設定で変わる (--public-url があると公開URLになる) ので、トークンだけを取り出す
-token="$(ssh -o BatchMode=yes "$host" "grep -o 'token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)"
+case "${DEV_DSH_USER:-}" in
+  secretary)
+    token="$(ssh -o BatchMode=yes "$host" "sudo -H -u secretary grep -o 'token=[A-Za-z0-9_-]*' /home/secretary/.dsh/web.log | tail -1" 2>/dev/null)" ;;
+  '')
+    token="$(ssh -o BatchMode=yes "$host" "grep -o 'token=[A-Za-z0-9_-]*' ~/.dsh/web.log | tail -1" 2>/dev/null)" ;;
+  *) err 'unsupported DSH user'; exit 1 ;;
+esac
 if [ -z "$token" ]; then err "Web UIのトークンを取得できません ($host の ~/.dsh/web.log)"; exit 0; fi
 
 # 既存のトンネル (同じホスト宛て・生存中) があれば再利用する
