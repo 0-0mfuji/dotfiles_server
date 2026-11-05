@@ -11,7 +11,7 @@
 | --- | --- |
 | 確立済みのSSH接続がある | Macからの接続、ZedがProxyJump経由でコンテナに繋いでいる間 |
 | `systemd-inhibit` で sleep を **block** しているものがある | ビルド、レンダー、エンコード、バックアップ |
-| AIエージェント・レンダリングのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` / `nanomuse` が作業中。`ffmpeg` / `blender` / Remotionの `chrome-headless-shell` が書き出し中 (コンテナ内のジョブはホストの inhibitor を持てないため、これで検知する) |
+| AIエージェント・レンダリングのプロセスが、直近でCPUを使っている | コンテナ内の `claude` / `codex` / `dsh` / `nanomuse` が作業中。秘書のKarakeep-tool・PLaMo翻訳も対象。`ffmpeg` / `blender` / Remotionの `chrome-headless-shell` が書き出し中 (コンテナ内のジョブはホストの inhibitor を持てないため、これで検知する) |
 | **GPUが計算中** (使用率が閾値以上) | コンテナ内のPythonでの学習など。VRAMを持つだけの放置ノートブックは対象外。詳細は [docs/gpu.md](../../docs/gpu.md) |
 
 `delay` 型のロック (NetworkManager等) は無視する。マシン全体のCPU使用率は見ない。

@@ -4,6 +4,8 @@ NanoMuseを標準の秘書にしています。Ollama CloudのAPI設定と会話
 メール・Plane・Karakeep・TimeTreeには既存の読み取り専用MCPで接続します。
 Web UIは英語/中国語、日本語UIの追加はまだ行っていません。AIの応答言語は日本語です。
 
+翻訳・Karakeep-tool・個別スキルの導入とデータ移行は [secretary-tools.md](secretary-tools.md) を参照してください。
+
 ## Macから使う
 
 ```bash
