@@ -16,6 +16,7 @@ dev secretary dsh             # DeepSeek Harnessを開く（併用）
 dev secretary codex           # Codex CLI
 dev secretary setup codex     # Codexの初回ログイン
 dev secretary setup dsh       # DSHモデル認証の設定画面
+dev secretary approve <plan-id> # 対象・件数を確認してKarakeepの削除・一括更新
 dev secretary doctor          # 外部連携の接続診断
 dev secretary status          # 起動せず状態を確認
 ```
@@ -278,3 +279,5 @@ Mac launcherの検証: `python3 -m unittest discover -s tests -v`。
 `/var/backups/secretary/retired-hermes-*` に保存します。必要なデータを取り出す場合も、
 認証情報を文書フォルダへ置かないでください。過去の適用経緯は
 [導入記録](secretary-deployment-2026-10-26.md)に残しています。
+
+Karakeepの実APIキーは管理者用 `/etc/secretary-karakeep.json` に保存し、AI用の接続設定には制限付きgatewayトークンだけを保存します。削除・一括更新の確認方法は [secretary-tools.md](secretary-tools.md#karakeepの削除一括更新の承認) を参照してください。

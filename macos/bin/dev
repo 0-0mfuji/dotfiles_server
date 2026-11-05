@@ -38,6 +38,7 @@ Usage: dev [options] <target> [project]
   dev secretary setup codex     Codexへログイン
   dev secretary setup dsh       DSHモデル認証の設定画面を開く
   dev secretary setup [section]  モデル・外部連携を設定
+  dev secretary approve <plan-id>  対象を確認して削除・一括更新を実行
   dev secretary doctor          外部連携を診断
   dev secretary status          状態確認（起動しない）
   dev secretary timetree-calendars  カレンダー一覧
@@ -91,9 +92,13 @@ load_local_env
 if [ "$target" = secretary ]; then
   secretary_action="${project:-open}"
   project=""
-  case "$secretary_action" in open|mobile|notes|dsh|codex|setup|doctor|status|timetree-calendars) ;; *) err "unknown secretary command: $secretary_action"; exit 2 ;; esac
-  case "$section" in ''|model|notifications|gmail|outlook|plane|karakeep|notes|timetree|codex|dsh) ;; *) err "unknown setup section: $section"; exit 2 ;; esac
-  [ "$secretary_action" = setup ] || [ -z "$section" ] || { err 'sectionはsetup専用です'; exit 2; }
+  case "$secretary_action" in open|mobile|notes|dsh|codex|setup|approve|doctor|status|timetree-calendars) ;; *) err "unknown secretary command: $secretary_action"; exit 2 ;; esac
+  if [ "$secretary_action" = approve ]; then
+    [[ "$section" =~ ^[a-f0-9]{32}$ ]] || { err 'invalid plan id'; exit 2; }
+  else
+    case "$section" in ''|model|notifications|gmail|outlook|plane|karakeep|notes|timetree|codex|dsh) ;; *) err "unknown setup section: $section"; exit 2 ;; esac
+  fi
+  [ "$secretary_action" = setup ] || [ "$secretary_action" = approve ] || [ -z "$section" ] || { err 'sectionはsetup専用です'; exit 2; }
   if [ "$secretary_action" != open ] && [ "$only_zed$only_web$only_preview$only_mobile" != 0000 ]; then
     err '秘書のサブコマンドと画面選択オプションは併用できません'; exit 2
   fi
@@ -186,7 +191,7 @@ if [ "$workflow" = secretary ]; then
       ssh "$remote_host" 'sudo systemctl start dsh-web.service'
       DEV_DSH_USER=secretary "$REPO_ROOT/scripts/open-web" "$remote_host"
       exit ;;
-    setup|doctor|timetree-calendars)
+    setup|approve|doctor|timetree-calendars)
       exec "$REPO_ROOT/scripts/secretary-command" "$remote_host" "$secretary_action" "$section" ;;
   esac
   DEV_FORCE_LOGIN="$force_login" DEV_SECRETARY_CHECK="$check_login" \

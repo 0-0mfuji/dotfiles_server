@@ -134,6 +134,25 @@ esac
         self.assertIn('open-web secretary-dev', self.calls())
         self.assertIn('open http://127.0.0.1:8787/', self.calls())
 
+    def test_karakeep_plan_approval_uses_operator_identity(self):
+        plan = 'a' * 32
+        result = self.run_dev('secretary', 'approve', plan)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("sudo /usr/local/bin/secretary-karakeep approve '" + plan + "'", self.calls())
+        self.assertNotIn('sudo -H -u secretary /usr/local/bin/secretary-karakeep', self.calls())
+        self.assertNotIn('secretary-nanomuse.service', self.calls())
+
+    def test_karakeep_approval_rejects_invalid_id_before_connecting(self):
+        result = self.run_dev('secretary', 'approve', 'invalid;command')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), '')
+
+    def test_karakeep_setup_stores_credentials_with_operator_not_ai(self):
+        result = self.run_dev('secretary', 'setup', 'karakeep')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('sudo /usr/local/bin/secretary-karakeep setup', self.calls())
+        self.assertNotIn('sudo -H -u secretary /usr/local/bin/secretary setup', self.calls())
+
     def interactive_dev(self, args, answer):
         master, slave = os.openpty()
         def controlling_terminal():
