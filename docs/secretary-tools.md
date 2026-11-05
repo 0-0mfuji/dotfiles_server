@@ -203,3 +203,39 @@ DSHからのGPU処理も他の翻訳・OCR・動画処理とVRAMを共有する�
 ```bash
 sudo -H -u secretary /usr/local/bin/secretary-dsh
 ```
+
+## CodexとDSHの共通設定
+
+Codex CLIも同じsecretaryユーザーへ導入する。既に入っているCLIのバージョン・モデル・認証・承認設定は保持する。
+DSHには他の開発コンテナと同じcheckout-localのCodexサブエージェントプラグインを導入する。
+このプラグインはDSH固定版が依存する専用Codexネイティブペイロードを使い、グローバルCLIへフォールバックしない。
+両者は同じsecretaryユーザーのネイティブ認証を利用するが、CLIのバージョンが必ず一致するとは限らない。
+モデル・permissionModeはプラグイン既定値のままにし、他の開発コンテナと同じ扱いにする。
+
+```bash
+# Mac。サーバー更新・provision後に初回だけログインする
+dev secretary setup codex
+dev secretary codex
+```
+
+device code認証はアカウント側で有効化が必要な場合がある。
+[OpenAI公式の認証手順](https://developers.openai.com/codex/auth/) を参照。
+Macや他コンテナの認証ファイルは自動コピーしない。ログイン完了後、DSHからCodex委譲を試す。
+CLI単体にも秘書用MCPと129スキルを追加し、既存の独自MCPと競合する場合は上書きせず停止する。
+スキル原本とNanoMuse/DSH側の129スキルは維持し、Codex向けコピーを `~secretary/.agents/skills` に配置する。
+
+| 項目 | 他の開発用コンテナとの比較（リポジトリ設定） |
+|---|---|
+| DSH本体 | 同じ `provision/versions.env` の固定コミット |
+| Node要件・ビルド | 同じNode 22系・pnpm lockfileでビルド |
+| モデル一覧・既定モデル | 同じ `web-defaults.yml`。Ollama Cloud / deepseek-v4.1-flash:1017 |
+| 権限・sandbox | DSH標準設定。全権限や承認省略へ変更しない。bubblewrapのGPU wrapperも共通 |
+| Codex委譲プラグイン | 同じcheckoutのlinkインストール。ネイティブ設定・認証を利用 |
+| Claude委譲・Claude CLI | 秘書には追加していない |
+| 実行ユーザー・作業場所 | 秘書はsecretary / `/srv/secretary/documents` |
+| 追加MCP・スキル | 秘書の専用MCP・129スキルを上乗せ |
+| 認証・履歴 | コンテナごとに独立。実際の既存設定は上書きしない |
+| 起動UI | 秘書は `dev secretary dsh`。Zed/ACPは秘書導入の対象外 |
+
+サーバー停止中のため、他コンテナで利用者が変更した稼働中設定との完全一致は未確認。
+構成の共通部分を揃えるもので、既存の個別設定を強制上書きする処理は入れない。

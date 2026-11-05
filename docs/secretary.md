@@ -13,6 +13,8 @@ dev secretary                 # NanoMuseを開く
 dev secretary setup model     # モデル設定画面へ
 dev secretary notes           # SilverBulletを開く（任意）
 dev secretary dsh             # DeepSeek Harnessを開く（併用）
+dev secretary codex           # Codex CLI
+dev secretary setup codex     # Codexの初回ログイン
 dev secretary doctor          # 外部連携の接続診断
 dev secretary status          # 起動せず状態を確認
 ```
@@ -85,7 +87,7 @@ Ollama Cloudへ会話を送るAPI通信は発生します。外部連携の認�
 
 定義と導入スクリプトは別リポジトリ `dotfile_infra/secretary.tf` と `secretary/`。
 コンテナ名は既存の規則に合わせて **`secretary-dev`**。専用resourceで定義し、
-`provision/run` からも専用provisionへ振り分けるため、NanoMuseとDSHを秘書用に導入する。Codex CLIは含めない。
+`provision/run` からも専用provisionへ振り分けるため、NanoMuseとDSHを秘書用に導入する。Codex CLIとDSHのCodex委譲プラグインも導入する。
 既存の `terraform.tfvars` に次を追加する。IP・ポートは環境に合わせ、Gitには入れない。
 
 ```hcl

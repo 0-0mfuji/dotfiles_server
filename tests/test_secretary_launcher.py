@@ -80,6 +80,20 @@ esac
         self.assertNotIn('secretary-nanomuse.service', calls)
         self.assertNotIn('agent-login', calls)
 
+    def test_secretary_codex_opens_cli_without_nanomuse(self):
+        result = self.run_dev('secretary', 'codex')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        self.assertIn('sudo -H -u secretary /usr/local/bin/secretary-codex', calls)
+        self.assertNotIn('secretary-nanomuse.service', calls)
+        self.assertNotIn('open-web', calls)
+
+    def test_secretary_codex_setup_uses_device_auth(self):
+        result = self.run_dev('secretary', 'setup', 'codex')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('secretary-codex login --device-auth', self.calls())
+        self.assertNotIn('try-restart secretary-nanomuse', self.calls())
+
     def interactive_dev(self, args, answer):
         master, slave = os.openpty()
         def controlling_terminal():
