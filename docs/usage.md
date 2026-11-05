@@ -41,7 +41,8 @@ dev --login os    # Claude Code / Codex のログインを案内する (「今�
 `secretary` は `projects.conf` のworkflow列を `secretary` にした専用target。
 コンテナ名・SSH名は `secretary-dev`。Wake・起動・接続確認は共通処理を使い、
 未設定の連携を案内してNanoMuseを開く。
-Codex・Claude・GitHubログイン、Zed、DeepSeek Harnessの起動は行わない。
+Codexの未ログインとDSHのモデル認証も案内する。`dev secretary dsh` はDSH、
+`dev secretary codex` はCodex CLIを開く。Claude・GitHubログインとZedの起動は行わない。
 `--web` はNanoMuse、`--preview` はSilverBulletのみ。`--no-login` は案内を省略し、
 `--login` は「今後聞かない」を無視して未設定項目を案内する。
 `--zed` / `--mobile` はこのtargetでは未対応。

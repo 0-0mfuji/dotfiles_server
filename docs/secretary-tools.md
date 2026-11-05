@@ -239,3 +239,29 @@ CLI単体にも秘書用MCPと129スキルを追加し、既存の独自MCPと�
 
 サーバー停止中のため、他コンテナで利用者が変更した稼働中設定との完全一致は未確認。
 構成の共通部分を揃えるもので、既存の個別設定を強制上書きする処理は入れない。
+
+## 起動時のセットアップ案内
+
+`dev secretary` は連携設定に加え、CodexログインとDSHモデル認証の状態を表示し、未設定なら次を案内する。
+
+```text
+[dev] Codex: 未ログイン
+[dev] Codexログイン を設定しますか? [y=今する / Enter=今回は進む / s=今後聞かない]
+```
+
+`y` はその場でdevice codeログイン、DSHの場合はモデル認証用のWeb UIを開く。
+Codexログイン後は状態を再確認する。未完了でもNanoMuse等の起動は続ける。
+非対話実行では状態だけを表示し、ログインや設定画面を勝手に追加起動しない。
+
+- `dev secretary dsh`: DSHの設定状態とCodexログインを確認。DSH認証が未設定なら、これから開く画面で何を設定するか案内する。
+- `dev secretary codex`: Codexのログイン状態を確認してからCLIを開く。
+- `dev --login secretary`（または `dev --login secretary dsh` / `codex`）: 「今後聞かない」を無視して未設定項目を再案内する。
+- `dev --no-login secretary`（または `dsh` / `codex`）: 設定確認・案内を省略する。
+- `dev secretary setup codex` / `dev secretary setup dsh`: 個別の設定へ直接進む。
+
+スキップ設定はMacの `~/.config/dev/skip-secretary/<SSH名>/` に保存する。
+CodexはネイティブCLIのlogin statusだけを確認し、その出力は捨てる。
+DSHは選択中のプロバイダーと保存された認証の対応を確認する。認証ファイルがあるだけで設定済みとはしない。
+DSHの認証保存済みは接続成功やキーの有効性を保証しない。独自のJS式を含む設定等は「確認できません」と表示する。
+キーや認証ファイル内容はMacへ返さず、未導入・未設定・確認不能を区別する。
+未導入の場合はサーバーのprovision手順を表示し、起動コマンドからインストーラーを自動実行しない。

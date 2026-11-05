@@ -15,6 +15,7 @@ dev secretary notes           # SilverBulletを開く（任意）
 dev secretary dsh             # DeepSeek Harnessを開く（併用）
 dev secretary codex           # Codex CLI
 dev secretary setup codex     # Codexの初回ログイン
+dev secretary setup dsh       # DSHモデル認証の設定画面
 dev secretary doctor          # 外部連携の接続診断
 dev secretary status          # 起動せず状態を確認
 ```

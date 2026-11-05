@@ -20,7 +20,7 @@ class LauncherTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         for folder in ('macos/bin', 'scripts', 'config', 'bin', 'home'):
             (self.root / folder).mkdir(parents=True)
-        for path in ('macos/bin/dev', 'scripts/secretary-command', 'scripts/lib.sh', 'scripts/secretary-launch'):
+        for path in ('macos/bin/dev', 'scripts/secretary-command', 'scripts/lib.sh', 'scripts/secretary-launch', 'scripts/secretary-onboarding'):
             shutil.copy2(REPO / path, self.root / path)
         with (self.root / 'scripts/lib.sh').open('a') as out:
             out.write('\nensure_tunnel() { echo "$3"; }\n')
@@ -40,7 +40,10 @@ class LauncherTests(unittest.TestCase):
         self.executable('bin/ssh', '''#!/bin/bash
 echo "ssh $*" >> "$CALL_LOG"
 case "$*" in
-  *readiness*) printf 'model\tready\tOllama Cloud\nnotes\tready\tSilverBullet\ngmail\tpending\tGmail OAuth\n' ;;
+  *readiness*)
+    if [ -n "${TEST_READINESS:-}" ]; then printf '%s\n' "$TEST_READINESS"
+    else printf 'model\tready\tOllama Cloud\nnotes\tready\tSilverBullet\ngmail\tpending\tGmail OAuth\n'; fi ;;
+  *'login --device-auth'*) [ "${TEST_LOGIN_FAILURE:-0}" != 1 ] ;;
   *server_token*) echo "${TEST_NANOMUSE_TOKEN:-fixture-token}" ;;
   *curl*) echo 200 ;;
 esac
@@ -93,6 +96,43 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('secretary-codex login --device-auth', self.calls())
         self.assertNotIn('try-restart secretary-nanomuse', self.calls())
+
+    def test_coding_onboarding_displays_status_without_noninteractive_login(self):
+        self.env['TEST_READINESS'] = 'codex\tpending\tCodex\ndsh-model\tpending\tDSHモデル認証'
+        result = self.run_dev('secretary', 'dsh')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Codex: 未ログイン', result.stderr)
+        self.assertIn('DSHモデル認証: 未設定', result.stderr)
+        self.assertNotIn('login --device-auth', self.calls())
+
+    def test_coding_onboarding_skip_force_and_no_login(self):
+        self.env['TEST_READINESS'] = 'codex\tpending\tCodex'
+        output, answered = self.interactive_dev(['secretary', 'codex'], 's')
+        self.assertTrue(answered, output)
+        self.assertTrue((self.root / 'home/.config/dev/skip-secretary/secretary-dev/codex').exists())
+        output, answered = self.interactive_dev(['secretary', 'codex'], '')
+        self.assertFalse(answered, output)
+        output, answered = self.interactive_dev(['--login', 'secretary', 'codex'], '')
+        self.assertTrue(answered, output)
+        self.log.write_text('')
+        result = self.run_dev('--no-login', 'secretary', 'codex')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('readiness', self.calls())
+
+    def test_codex_login_failure_does_not_block_launch(self):
+        self.env['TEST_READINESS'] = 'codex\tpending\tCodex'
+        self.env['TEST_LOGIN_FAILURE'] = '1'
+        output, answered = self.interactive_dev(['secretary', 'codex'], 'y')
+        self.assertTrue(answered, output)
+        self.assertIn('login --device-auth', self.calls())
+        self.assertIn('このまま進みます', output)
+
+    def test_dsh_setup_from_onboarding_opens_dsh_and_continues_nanomuse(self):
+        self.env['TEST_READINESS'] = 'dsh-model\tpending\tDSHモデル認証'
+        output, answered = self.interactive_dev(['secretary'], 'y')
+        self.assertTrue(answered, output)
+        self.assertIn('open-web secretary-dev', self.calls())
+        self.assertIn('open http://127.0.0.1:8787/', self.calls())
 
     def interactive_dev(self, args, answer):
         master, slave = os.openpty()
