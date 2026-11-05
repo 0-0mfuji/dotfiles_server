@@ -72,7 +72,7 @@ tofu apply
 `~/.config/dev/provision.env` (サーバー上・Git管理外) に、VOICEVOX の場所を書く。
 
 ```sh
-VOICE_URL=http://<voiceのIP>:50021        # voice の ip。video-dev の ~/.profile と ~/.bashrc に入る
+VOICE_URL="http://<voiceのIP>:50021"      # voice の ip。video-dev の ~/.profile と ~/.bashrc に入る
 ```
 
 ```sh

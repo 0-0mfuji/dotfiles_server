@@ -11,7 +11,9 @@
 - PLaMoの英文→日本語翻訳がRTX 3070 Tiで成功。
 - Karakeep参照に成功し、生のDELETEはgatewayでHTTP 403。
 - Codex CLIを導入済み。CodexログインとDSHモデル認証は利用者による設定待ち。
-- Macデータの全件移行・整合性確認は別工程。本体の導入完了だけではデータ移行完了としない。
+- Macの移行対象101,165ファイル・53,872,680,057バイトを取り込み済み。
+  取り込み時と配置後の再読み取りでSHA-256が全件一致。所有者secretary・mode600も確認済み。
+  Macの原本とサーバーの非公開stagingは保持し、認証情報や仮想環境は移行対象から除外した。
 
 認証情報・Git管理外のマシン設定・実行ログを除き、適用中に必要になった修正も
 Macでコミット・pushしてからサーバーでpullした。サーバーだけのソース変更は残していない。
@@ -109,7 +111,7 @@ Macで実行（Python 3.9以上）。出力先は新しい非公開ディレク�
 ```bash
 python3 scripts/secretary-data-manifest "$HOME/home/Karakeep-tool" /private/tmp/secretary-transfer
 ssh dev-server 'umask 077; mkdir -p ~/secretary-import/data'
-rsync -rt --partial --from0 --files-from=/private/tmp/secretary-transfer/files.nul \
+caffeinate -i rsync -rt --partial --inplace --from0 --files-from=/private/tmp/secretary-transfer/files.nul \
   "$HOME/home/Karakeep-tool/" dev-server:secretary-import/data/
 rsync -t /private/tmp/secretary-transfer/manifest.json /private/tmp/secretary-transfer/files.nul \
   dev-server:secretary-import/
@@ -117,6 +119,11 @@ rsync -t /private/tmp/secretary-transfer/manifest.json /private/tmp/secretary-tr
 
 必要なら最初のrsyncに `--dry-run` を加えて対象を確認する。
 チェックサム作成後は転送完了までMac側の対象ファイルを変更しない。
+`caffeinate` は転送中のMacのアイドルスリープを抑止する。途中で切断された場合は
+同じコマンドを再実行し、非公開staging内の部分ファイルを再利用する。
+大容量転送の前にMacのWi-Fi帯域・リンク速度を確認し、5GHzまたは有線LANを利用する。
+2026-11-06の実機では2.4GHz接続が28Mbpsで、5GHzへ変更後もSSH単体は約6〜8MB/秒だった。
+リンク速度の表示だけで実効速度を判断せず、通信経路も確認する。
 
 サーバーで実行:
 
