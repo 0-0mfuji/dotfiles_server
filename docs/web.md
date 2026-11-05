@@ -314,12 +314,11 @@ Flow の性能計測は既定で実機 GPU を要求し、ソフトウェア描�
 
 ### Flow2 のプレビュー
 
-`dev web flow-aligned-painterly-cloud-rendering2` は 5175 番の
-`/?asset=official&preset=quality` を開く。Flow2 は単一ページの別実装で、
-Flow1 の `/volume.html` や `preset=high` は使用しない。
-公式アセットは `public/assets/official/` を使用する。
-デモアセット未生成時に既定の `asset=demo` で開くと、Vite の HTML フォールバックを
-密度バイナリとして解釈して形式エラーになるため、公式アセットを明示する。
+`dev web flow-aligned-painterly-cloud-rendering2` は `dev:product` を起動し、
+5176 番の `/` にプロダクト向けサイトを開く。
+`product/vite.config.ts` と `product/public/` を使用する。
+初回のアセット生成はプロジェクト内で `npm run assets:product` を実行する。
+研究用ビューアはルートの `dev` スクリプトを別ポートで起動して使用する。
 
 #### Flow2 の公式実装を調べるためのツール
 
