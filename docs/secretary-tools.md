@@ -67,7 +67,10 @@ incus start secretary-dev   # 停止している場合だけ。既に稼働中�
 systemd-inhibit --what=sleep --mode=block --why="Secretary tools setup" ./provision/run secretary-dev
 ```
 
-GPU追加後に見えない場合は、作業中ジョブがないことを確認してコンテナを再起動する。
+`nesting` を変更した場合は、provisionの前に作業中ジョブがないことを確認し、
+`incus restart secretary-dev` でコンテナを再起動する。設定値が `true` でも、
+再起動前はbubblewrapの `/proc` マウントに失敗する場合がある。
+GPU追加後にデバイスが見えない場合も再起動する。
 provisionはサーバーのSSHエージェントでKarakeep-toolを取得し、固定ソースをGit bundleでコンテナへ渡す。
 コンテナ内にGitHubの秘密鍵や常設トークンを保存しない。
 

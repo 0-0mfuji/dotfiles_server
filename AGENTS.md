@@ -41,4 +41,7 @@ Publish Mac changes to the repository remote, then update the Development Server
 changes by editing server checkouts directly or copying files over SSH. Before pulling,
 preserve and reconcile any server-side worktree changes; never discard them to make a pull
 succeed. After pulling, run the installer or provisioning command for the changed component.
+If server-only source changes exist, bring them back to the Mac, review them for secrets,
+and publish them to the remote before deployment. Keep credentials, ignored machine
+configuration, and runtime logs outside Git; do not publish those as source changes.
 For suspend changes, run `sudo ./server/install-suspend.sh` from `~/dotfiles_server`.
