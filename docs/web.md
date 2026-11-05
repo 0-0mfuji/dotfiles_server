@@ -50,7 +50,7 @@ web = {
   cpu       = 8
   memory    = "16GiB"       # Vite / torch / DeepSeek Harness のビルド (12GiB以上) 用
   disk_size = "150GiB"      # .git 2GB + data/ 14GB + node_modules + venv(torch)
-  ip        = "10.10.0.30"  # 他と重ならない値に
+  ip        = "<webのIP>"  # 他と重ならない値に
   web_port  = 8015          # スマホ用 (DeepSeek HarnessのWeb UI)
 }
 ```
@@ -84,7 +84,7 @@ tofu apply
 Host lang-dev cpu-dev os-dev video-dev web-dev     # 共通設定の行に web-dev を足す
 
 Host web-dev
-    HostName 10.10.0.30        # tfvars の web の ip
+    HostName <webのIP>        # tfvars の web の ip
 ```
 
 [config/projects.conf](../config/projects.conf) の `web/igakutteru` 行は、すでに入っている。

@@ -39,7 +39,7 @@ Arch LinuxをThin Clientとして使い、ZedからDevelopment Server上のIncus
        IdentitiesOnly yes
 
    Host os-dev
-       HostName 10.10.0.13
+       HostName <osのIP>
        User dev
        ProxyJump dev-server
        IdentityFile ~/.ssh/<秘密鍵>

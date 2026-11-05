@@ -137,7 +137,7 @@ GIT_USER_EMAIL="you@example.com"
    ```hcl
    mobile_bind_ip = "100.x.y.z"
    dev_instances = {
-     os = { ip = "10.10.0.13", web_port = 8013 }
+     os = { ip = "<osのIP>", web_port = 8013 }
    }
    ```
 

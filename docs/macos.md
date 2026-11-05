@@ -51,7 +51,7 @@ MacBookはThin Client。入れるのは Zed / OpenSSH / SSH鍵 / Tailscale / こ
        IdentitiesOnly yes
 
    Host os-dev
-       HostName 10.10.0.13           # dotfile_infra の terraform.tfvars の ip と合わせる
+       HostName <osのIP>           # dotfile_infra の terraform.tfvars の ip と合わせる
        User dev
        ProxyJump dev-server
        IdentityFile ~/.ssh/<key>
