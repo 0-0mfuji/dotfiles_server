@@ -175,12 +175,24 @@ MCP側で固定の `data/novels` を読み、候補数・EPUB数・途中TXTの�
 進捗確認のためにcollect/downloadを再実行しない。TXTの行数は話数ではない。
 この確認はネットワーク通信・ダウンローダー起動・ファイル変更を行わない。
 
+医学書・学習教材EPUBの進捗は `secretary_tools__study_status` を使う。
+`scope=medical|nonmedical|all` で保存計画のタスクを分類し、現在のプロファイルの
+完了・停止・未着手、停止位置、配置済み出力、現在の空き容量を確認する。
+元カタログの冊数・グループ数と変換タスク数は異なる。完了分は未校閲の下書きである。
+GPUは `secretary_tools__gpu_diagnostics` で実際のOCR用Pythonを検査する。
+固定された小さなCUDA計算だけを行い、OCR・変換・モデルのダウンロードは開始しない。
+隔離shellにデバイスがないことを、MCP側にもGPUがない根拠にしない。
+変換プログラムの既定deviceはCPU。GPU実行指定は `--device cuda` と
+`--yomitoku-python /opt/secretary-ocr/bin/python`。実OCRの検証は別工程である。
+移行済み記録にはMac絶対パスとパス由来のジョブIDが残るため、再開前に整合が必要。
+進捗確認だけの依頼でrunを再実行しない。
+
 ## EPUBをMacへダウンロード
 
 EPUB作成後、`secretary_tools__export_epub` に完成ファイルの相対パスを渡す。
 通常はKarakeep-toolからの相対パス。文書workspace内なら `source="documents"` を指定する。
 保存先が分からない場合は `secretary_tools__list_epubs` でファイル名・保存先・
-既知のなろう作品名から検索する。本文は一覧や会話へ返さない。
+既知のなろう作品名・教材名から検索する。本文は一覧や会話へ返さない。
 
 専用ツールはZIP/EPUBのmimetypeとCRCを検証し、原本を残したまま
 文書workspaceの `downloads/epub-<一意なID>/` に新しいコピーを用意する。
