@@ -504,3 +504,14 @@ systemd-inhibitでホストの自動Suspendを防ぐ。PLaMo・他のOCRと共�
 NanoMuseのstudy_statusは準備済みのLinux領域を優先し、output_rootとmigrationも返す。
 list_epubs/export_epubで新領域のEPUBも検索・ダウンロード準備できる。
 元の69教材・394EPUBは旧領域に保持する。医学的内容の校閲は別途必要。
+
+
+2026-11-06の実機適用記録：旧70教材の原本SHA-256をすべて照合し、完成69教材・394EPUBと
+途中1教材をLinux用プロファイルe1bbf5214ccaへ移行した。旧プロファイル3e66ab34f484の元領域は保持。
+完成69教材は主OCRなしで再利用され、70/626番目の「病気がみえるvol.13 耳鼻咽喉科」に到達した。
+部分教材も保存済みOCRを再利用し、巻ごとのEPUB検査から継続する。
+Tesseractのeng/jpn導入とCUDAの実計算を確認済み。自動Suspend抑止とホストユーザーのLinger=yesも確認した。
+論理コピー量8,326,912,357bytes、適用直後の空き約51.95GiB。入力不足32件はmigration.jsonに保持。
+86件のテスト、既存成果物の独立コピー、絶対・相対パスの変換、原本変更の拒否を確認した。
+移行時のOCR本文JSONはパスを含む場合だけ解析・更新し、それ以外は元のバイト列を保持する。
+処理はsecretary-study-resume.serviceとして起動済みで、NanoMuseのstudy_statusは新領域を参照する。
