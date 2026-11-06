@@ -427,3 +427,36 @@ data_filesはsafe・egress=falseに限定する。汎用runはsensitive・egress
 既に開いている会話に古いスキル内容が残る場合は新しい会話で確認する。
 更新用installerは実行中のMCPワーカー・教材変換・OCR・翻訳を検出したら停止し、
 ジョブをサービス再起動で中断しない。完了後に通常のMac→push→サーバーpull→provisionで適用する。
+
+
+### OCR試験の大量起動と承認を抑止する（2026-11-06）
+
+速度確認には専用 `study_sample` を使う。PDFはdata/study内の1件、1〜16ページ（既定8）、
+DPIは300（明示時200も可）、deviceはcuda/cpuだけを受け付ける。任意のCLI引数・外部AI・
+保存先指定は受け付けない。固定版の変換プログラムへ `--input` を渡し、全カタログの無関係な
+入力不足によるexit 2を避ける。Linux JavaとEPUBCheckを必須にして省略しない。
+
+```text
+study_sample(input_file="data/study/.../教材.pdf", first_page=1, page_count=8, dpi=300, device="cuda")
+job_status(job_id="返されたID", wait_seconds=45)
+```
+
+新しい専用出力でOCRし、既存キャッシュ・原本・本番出力を保持する。同じファイルの同じ条件は
+既存job_idを返し、重複して起動しない。失敗後の同条件でも自動再試行しない。
+OCRとPLaMoは共通ロックで同時実行を拒否し、旧経路で動いているOCRも検出する。
+汎用runでの `convert_study_materials.py run --pages ...` は拒否し、試験専用経路へ誘導する。
+通常の全冊変換・正式再開は引き続き別途承認対象であり、試験から勝手に開始しない。
+
+試験ツールはmoderate・egress=false。子プロセスにAPI認証を渡さず、HFオフライン設定に加えて
+bubblewrapの独立ネットワーク名前空間で外部通信を遮断する。ルートは読取り専用、
+新規の試験出力と既存モデル配置・一時領域だけを書込可能にする。GPUデバイスは既存wrapperで公開する。
+
+結果にはstarted/finished/elapsed_seconds、新規OCRページ数、DPI、成否、EPUB保存先を記録する。
+要求全ページ・1教材・横縦2EPUBの作成と検査が成功した場合だけ秒/ページを返す。
+モデル起動・EPUB作成・検査を含む実測であり、純粋なOCR推論時間ではない。
+速度比較には同じページ・DPI・キャッシュ条件をそろえ、失敗や別ページの時間を倍率にしない。
+EPUBCheck合格はOCR精度の保証ではなく、DPI低下の品質確認は別に必要。
+
+NanoMuse共通指示と教材変換スキルでは、試験はまず1件で報告し、
+「どうですか」を追加実験の承認として解釈しないようにする。上限前に新規処理を止めて記録する。
+会話の履歴を失った場合も「未実施」と断定せず、study_statusのrecent_sample_jobsからjob_idを回復できる。
