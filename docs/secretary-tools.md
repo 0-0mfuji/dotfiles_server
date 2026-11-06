@@ -169,6 +169,12 @@ PLaMoとOCRを同時にGPU実行しない。他コンテナともVRAMを共有�
 追加スキルと生成テンプレートの待機指示を統一した。同梱11件にshell sleepの指示はなかった。
 KarakeepのCLI例は引数の参考用で、操作は専用MCPを使い、APIキーを要求しない。
 
+なろう取得の進捗は `secretary_tools__narou_status` を引数なしで呼ぶ。
+MCP側で固定の `data/novels` を読み、候補数・EPUB数・途中TXTの保存話数・バッチ記録・
+コンテナ内の取得プロセスを返す。shell/filesのworkspace制限を広げる必要はない。
+進捗確認のためにcollect/downloadを再実行しない。TXTの行数は話数ではない。
+この確認はネットワーク通信・ダウンローダー起動・ファイル変更を行わない。
+
 スキルは `/home/secretary/.nanomuse/skills/` へ導入し、NanoMuse本来の検出処理で検証する。
 実行ジョブはjob IDで追跡し、失敗・中断・出力上限を成功扱いしない。
 
