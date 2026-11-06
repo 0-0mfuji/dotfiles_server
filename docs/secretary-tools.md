@@ -551,3 +551,29 @@ DSHのAGENTS.mdにこの配置とツール経路を管理ブロックとして�
 移行済み領域のEPUBをタイトルで検索でき、変換は完了70教材を再利用して71冊目へ進んでいる。
 秘書用DSHはMacの `dev secretary dsh` で開く。他コンテナのDSHへ教材データは自動共有していない。
 任意のEPUB修正は作業コピーとクライアントのコード実行権限で扱い、全修正スクリプトの実動作検証を意味しない。
+
+
+### なろう取得の外部依存を自動導入する（2026-11-07）
+
+Karakeep-toolの/novel_downloaderはGit管理外のため、本体のcloneだけでは取得プログラムが揃わなかった。
+secretary/tools-installからnarou-installを呼び、[ayati/novel_downloader](https://github.com/ayati/novel_downloader/tree/011a3c8d60fad25909839498b8e2694e62ca2cc8)
+のv2.21.0コミットを固定する。ソースとMITライセンスをSHA-256で検証し、
+保存済みの目次末尾404パッチを適用後、最終コードのSHA-256も検証する。
+原本コードと適用済みコードのハッシュはsecretary/versions.envに保持する。
+なろうで必要なCLI本体とライセンスのみを導入し、GUI・フォント・スクリーンショット等の大きな資産は複製しない。
+
+実体はroot所有の/opt/secretary/novel-downloader/<版とハッシュ>/に置き、
+Karakeep-tool/novel_downloaderをその版へのリンクにする。narou_library.pyの既定パスと一致する。
+既存の管理外ディレクトリがあれば上書きせず停止する。取得が実行中の場合も更新しない。
+教材OCRが実行中の場合、次の依存コンポーネントだけを適用できる。
+
+```bash
+cd ~/dotfile_infra
+./secretary/provision-narou
+```
+
+この経路ではNanoMuse/DSH/教材変換を再起動せず、小説原本・EPUB・TXT・候補・バッチ記録も変更しない。
+適用後、--version、目次404の5ケース、既存500話TXTの読取りをオフラインで検証する。
+checkpointを新規収集し直す必要はない。上位narou_library.pyに--resumeを渡さず、
+既存TXTを検出して下位の取得プログラムへ自動で--resumeが渡る仕様を保つ。
+このセットアップと検証だけでは本文取得は開始しない。
