@@ -469,3 +469,38 @@ converted_draft、入力不足0、エラー0、横書き・縦書きEPUB計2件�
 同条件の再要求で同じjob_idが返ること、旧run --pages経路が拒否されること、
 study_statusからジョブIDと完了状態を回復できることを実環境で確認した。
 83件のローカルテスト（共通GPUロックによる二重実行拒否を含む）も通過。
+
+
+### 旧Macライブラリを保全したLinux全件再開
+
+ホスト側のインフラrepoで次を使う。直接の汎用runによる全件起動は拒否する。
+
+```bash
+./secretary/study-resume plan
+./secretary/study-resume prepare
+./secretary/study-resume start
+./secretary/study-resume status
+```
+
+plan/prepareは旧Mac由来の完成69教材と途中1教材について現在の入力とのSHA-256一致を確認する。
+同じYomiToku・300dpi・confidence 0.9・volume 40のキャッシュだけを移行し、設定不一致・入力変更・
+依存メタデータ変更・出力欠落は開始前に拒否する。原領域text-reflow-libraryは変更せず、
+text-reflow-linuxへ独立コピー（対応FSならCoW）する。可変ファイルのハードリンクは使わない。
+教材IDをLinuxの原本パスに対応付け、job.jsonとPDFの入力識別情報、出力パスを更新する。
+
+補助Tesseract比較は新規ページでは省略する。同じ主OCR結果を使い、保存済み比較結果は残す。
+この変更だけを許可して新プロファイルへ移行し、由来プロファイルと比較の省略をmigrationに記録する。
+主OCR条件を変えたキャッシュの流用はしない。Tesseract本体と日本語・英語データもinstallerで導入する。
+
+再開前に固定版ソース、Linux Java、EPUBCheck、CUDAの実計算、空き容量を確認する。
+利用可能入力だけを固定カタログにし、見つからない32入力はmigration.jsonで別途未処理として保持する。
+全626教材が終わっても、この不足入力を含めた全教材の完了とは案内しない。
+
+startはホストのuser systemd unit secretary-study-resumeで実行する。SSHやNanoMuseの終了後も継続し、
+systemd-inhibitでホストの自動Suspendを防ぐ。PLaMo・他のOCRと共通のロックを使い、並列起動しない。
+変換プロセスはネットワークを遮断し、新しい出力領域だけへ保存する。Java検査を省略しない。
+空き5GiBで保存可能な停止位置を残す。ディスク不足・入力エラーからの無制限再試行はしない。
+
+NanoMuseのstudy_statusは準備済みのLinux領域を優先し、output_rootとmigrationも返す。
+list_epubs/export_epubで新領域のEPUBも検索・ダウンロード準備できる。
+元の69教材・394EPUBは旧領域に保持する。医学的内容の校閲は別途必要。
