@@ -175,6 +175,24 @@ MCP側で固定の `data/novels` を読み、候補数・EPUB数・途中TXTの�
 進捗確認のためにcollect/downloadを再実行しない。TXTの行数は話数ではない。
 この確認はネットワーク通信・ダウンローダー起動・ファイル変更を行わない。
 
+## EPUBをMacへダウンロード
+
+EPUB作成後、`secretary_tools__export_epub` に完成ファイルの相対パスを渡す。
+通常はKarakeep-toolからの相対パス。文書workspace内なら `source="documents"` を指定する。
+保存先が分からない場合は `secretary_tools__list_epubs` でファイル名・保存先・
+既知のなろう作品名から検索する。本文は一覧や会話へ返さない。
+
+専用ツールはZIP/EPUBのmimetypeとCRCを検証し、原本を残したまま
+文書workspaceの `downloads/epub-<一意なID>/` に新しいコピーを用意する。
+コピー完了までファイルを非表示にし、既存ファイルは上書きしない。
+対応上限は1ファイル1GiB、展開合計4GiB・10,000エントリ。空き1GiBも保つ。
+
+NanoMuseでは新しいファイルがチャットの成果物カードに表示される。
+カードを開き、右上のダウンロードボタンまたは「Download it」でMacへ保存する。
+既存の認証付きファイル配信を使い、新しい公開ポートや共有URLは作らない。
+Macの「ブック」アプリへの取り込みや自動インストールは行わない。
+進捗確認だけの依頼では、ダウンロード用コピーを自動作成しない。
+
 スキルは `/home/secretary/.nanomuse/skills/` へ導入し、NanoMuse本来の検出処理で検証する。
 実行ジョブはjob IDで追跡し、失敗・中断・出力上限を成功扱いしない。
 
