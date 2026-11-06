@@ -519,3 +519,27 @@ Tesseractのeng/jpn導入とCUDAの実計算を確認済み。自動Suspend抑�
 移行後の394EPUBを元69教材のファイルとSHA-256で照合し、全件一致した。
 11:52時点で70冊目は318/416ページ、新規OCR21ページへ進行し、GPUメモリ2,328MiBの使用を確認した。
 既存69教材と途中教材の保存済み296ページは再OCRを避け、以降を同一の常駐OCRワーカーで継続している。
+
+
+### NanoMuse・DSHからの正式再開
+
+全件再開の依頼はstudy_status(scope="all")のruntimeを確認し、停止時にstudy_resumeを1回だけ使う。
+このツールに任意のパス・引数・保存先・コマンドは渡せない。検証済み移行領域の存在と空き容量を確認し、
+ローカルの固定要求ファイルを作成する。NanoMuseはmoderate/egress=falseとし、汎用runやshellの許可を広げない。
+ホストのuser systemd timer secretary-study-dispatch.timerが15秒ごとに要求を確認し、
+固定のsecretary-study-resume.serviceを起動する。要求は一度だけclaimし、実行中なら重複起動しない。
+queued/claimed/dispatchedは完了を意味しない。study_status(wait_seconds=45)を最大2回確認して起動を報告する。
+要求が処理されなければその状態を伝え、シェルでの代替起動・探索・自動再試行は行わない。
+
+study_statusのruntimeは実際のプロセスからrunning/preparing/stoppedを判定する。
+resume-state.jsonが古いrunningでもプロセスがなければsaved_running_record_is_stale=trueを返す。
+プロセスの存在を確認せず、保存記録だけを根拠に実行中と案内しない。
+2026-11-06の停止調査では12:14にsystemdから停止要求があった記録を確認したが、要求者は特定できていない。
+
+DSH用スキルは~/.dsh/skillsへ129個配置し、MCP名をmcp__secretary_tools__へ変換している。
+サンドボックスの直接作業領域は/srv/secretary/documentsであり、実データは/srv/secretary/karakeep-tool/data。
+data_files/list_epubsで対象を探し、任意のEPUB修正はexport_epubで文書領域へ独立コピーしてから扱う。
+対応するkt-*スキルがある場合はinspectでLinux対応と引数を確認し、そのMCP経路を使う。
+スキル配置は全ツールの実動作検証を意味せず、全データをサンドボックスへ無制限に公開する設定にもしていない。
+DSHのAGENTS.mdにこの配置とツール経路を管理ブロックとして追記し、既存の指示を保持する。
+文書領域へEPUB作業領域の案内.mdも導入する。NanoMuseのカードUIがDSHにもあると断定しない。
