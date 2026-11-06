@@ -390,3 +390,40 @@ dev secretary setup karakeep
 APIキーは管理者用設定へ保存し、gatewayとNanoMuse/DSHを再起動する。Codexの既存チャットは必要に応じて開き直す。
 暗号化バックアップには管理者用キーと計画の状態も含める。これらをAIユーザーが読める場所へ復元しない。
 サーバー停止中のため、実アカウントの登録・タグ整理と、少件数の削除計画の実機検証は適用後に行う。
+
+
+### 2026-11-06 全スキルの承認経路監査
+
+追加129スキル（個別ツール126＋Karakeep・PLaMo・研究）と内蔵11スキルを対象に、
+スキル本文の呼出し経路とMCPリスク設定を確認した。全ワークフローの実処理を実行した検証ではない。
+個別の一覧はインフラrepoの `secretary/tooling/skill-approval-audit.csv` に記録する。
+
+| 対象 | 確認結果・対応 |
+|---|---|
+| 個別126スキル | 汎用runの実行手順が共通で、準備段階のシェル探索を抑止する経路が不足。全件に専用確認経路を追記。実行自体の承認は維持 |
+| Karakeep | 既存の参照・登録・タグ・削除計画の分離を維持。ファイル探索はdata_filesへ |
+| PLaMo | 専用translateとjob_statusを維持。sleepによる待機は不要 |
+| 研究 | grepを前提にした記述を修正。既存の抽出ツールを優先し、任意の新規分析コードは通常の承認対象 |
+| 内蔵Feishu / Tencent Meeting | CLIをshellで呼ぶ設計のため、読み取りでも承認が残る。汎用shellを許可せず、利用する場合は別途専用コネクタ化が必要 |
+| 内蔵の残り9件 | 待機用shellやファイル探索shellを求める記述は検出されず。メール送信・電話画面での送信等の実操作の確認は維持 |
+
+新しい `secretary_tools__data_files` はrepository/documentsの固定領域内のファイル名・相対パス・
+サイズ・更新時刻だけを返す。本文、隠しファイル、外向きシンボリックリンクを読まず、
+ネットワーク・子プロセス・書込を使わない。最大2万項目・100件で停止し、打切りはtruncatedで示す。
+本文検索や全件数の集計の代替ではない。`query` は正規表現ではなく文字列一致。
+
+```text
+仕様確認: catalog / inspect
+環境・依存配置: doctor
+原本・出力先探し: data_files(query="病気がみえる", directory="data/study")
+EPUB探し: list_epubs
+取得・変換進捗: narou_status / study_status
+GPU実測: gpu_diagnostics
+完了待ち: job_status(wait_seconds=45)
+```
+
+data_filesはsafe・egress=falseに限定する。汎用runはsensitive・egress=true、shellのalways-askを維持する。
+管理対象の全129スキルと今後の生成テンプレート、NanoMuse本体の共通指示にも同じ経路を適用する。
+既に開いている会話に古いスキル内容が残る場合は新しい会話で確認する。
+更新用installerは実行中のMCPワーカー・教材変換・OCR・翻訳を検出したら停止し、
+ジョブをサービス再起動で中断しない。完了後に通常のMac→push→サーバーpull→provisionで適用する。
