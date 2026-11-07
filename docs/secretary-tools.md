@@ -588,3 +588,15 @@ checkpointを新規収集し直す必要はない。上位narou_library.pyに--r
 Git管理外の依存パスは通常のリポジトリ検索で列挙されない場合があるため、検索0件だけで未導入と断定しない。
 
 管理リンクはGitのローカルexcludeにも登録し、固定版の作業ツリーがcleanのまま再導入できることを確認した。
+
+
+### なろう継続取得をチャット外で実行する
+
+依存修正後の継続取得は、ホスト側インフラrepoの `./secretary/narou-download start` を使う。
+開始前に既存取得プロセスの有無と取得本体の固定SHA-256を検証する。
+secretary-narou-download.serviceをuser systemdで起動し、SSH・チャット終了後も継続する。
+systemd-inhibitで自動Suspendを抑止し、既存EPUBをスキップ、途中TXTを自動再開する。
+固定候補2000件、逐次取得・待機3秒、空き下限5GiB。外部取得の並列化は行わず、失敗時の無限再試行もしない。
+状態は `./secretary/narou-download status` または専用MCPのnarou_statusで確認する。
+稼働中の取得を全体provisionによって中断しないよう、事前ガードにも取得プロセスを追加する。
+完了済みの教材626件は再実行しない。
