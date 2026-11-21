@@ -52,7 +52,7 @@ Options:
   (指定なし)    Zed、Web UI、QRコード、プレビューのすべて
   (secretary)   既定と--web はNanoMuse。--mobileはスマホQR、--previewはSilverBullet
   (複数指定)    指定したものだけ (例: --zed --mobile)
-  --login       ログインをスキップ設定を無視して案内する (secretaryでは秘書の連携設定)
+  --login       「今後聞かない」を無視してログインや連携設定を案内する
   --no-login    ログイン状況の確認を行わない
 
 Targets are defined in: $REPO_ROOT/config/projects.conf
@@ -183,6 +183,32 @@ if ! "$REPO_ROOT/scripts/server-status" "$remote_host" 5; then
   exit 1
 fi
 
+# GitHub の認証はプロジェクトを開く前に、そのコンテナの利用者で確認する。
+login_scope=""
+if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ]; then
+  case "$workflow" in
+    secretary)
+      case "$secretary_action" in
+        open) if [ "$want_web" = 1 ] || [ "$want_preview" = 1 ]; then login_scope=secretary-gh; fi ;;
+        codex|dsh|notes) login_scope=secretary-gh ;;
+      esac ;;
+    learn)
+      if [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; then
+        login_scope=gh
+        if [ "$force_login" = 1 ]; then login_scope=all; fi
+      fi ;;
+    *)
+      if [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; then
+        login_scope=all
+      elif [ "$want_preview" = 1 ] && [ "$preview" != "-" ]; then
+        login_scope=gh
+      fi ;;
+  esac
+fi
+if [ -n "$login_scope" ]; then
+  DEV_FORCE_LOGIN="$force_login" "$REPO_ROOT/scripts/agent-login" "$remote_host" "$login_scope" || true
+fi
+
 if [ "$workflow" = secretary ]; then
   case "$secretary_action" in
     codex)
@@ -226,11 +252,6 @@ EOF
   fi
 fi
 
-# ログイン状況の案内とWeb UIは、失敗しても処理を止めない
-# --mobile だけのときは、ログインの案内も省く
-if { [ "$workflow" != learn ] || [ "$force_login" = 1 ]; } && [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ] && { [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; }; then
-  DEV_FORCE_LOGIN="$force_login" "$REPO_ROOT/scripts/agent-login" "$remote_host" || true
-fi
 if [ "$want_web" = 1 ]; then
   "$REPO_ROOT/scripts/open-web" "$remote_host" || true
 fi

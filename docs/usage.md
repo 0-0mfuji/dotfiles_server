@@ -9,7 +9,7 @@ dev --zed os sota # Zed だけ
 dev --web os      # Web UI (+ スマホ用のQR)
 dev --preview video # 開発サーバー (Remotion Studio / Vite) だけ (projects.conf の preview列があるtarget。--studio も同じ)
 dev --mobile os   # スマホ用のQRコードだけを表示する
-dev --login os    # Claude Code / Codex のログインを案内する (「今後聞かない」も無視)
+dev --login os    # GitHub CLI・Claude Code・Codex のログインを再案内する
 ```
 
 ## 目次
@@ -28,9 +28,9 @@ dev --login os    # Claude Code / Codex のログインを案内する (「今�
 1. Development Serverに接続できなければ、Raspberry Pi経由でWake-on-LAN
 2. SSHが通るまで待つ (`DEV_SERVER_WAIT_TIMEOUT` 秒、既定180)
 3. `deps` があれば依存するコンテナを、続けて `instance` の停止中のIncusコンテナを起動 (依存先は止めない)
-4. `repo` が設定されていて、コンテナ内に `path` が無ければ `git clone`
+4. コンテナの GitHub CLI の認証状態を確認し、必要ならログインを案内する
+5. `repo` が設定されていて、コンテナ内に `path` が無ければ `git clone`
    (Macのsshエージェントを転送して認証する。privateでもOK。秘密鍵はコンテナに置かない)
-5. Claude Code / Codex のログイン状況を表示する (未ログインでも**止まらない**。下記)
 6. DeepSeek Harness の Web UI を開く (`--web` または指定なしのとき)
 7. スマホ用のQRコードを表示する (`--mobile`、`--web`、または指定なしのとき)
 8. `preview` が設定されていれば、開発サーバー (Remotion Studio / Vite) を開く (`--preview` または指定なしのとき。下記)
@@ -42,7 +42,7 @@ dev --login os    # Claude Code / Codex のログインを案内する (「今�
 コンテナ名・SSH名は `secretary-dev`。Wake・起動・接続確認は共通処理を使い、
 未設定の連携を案内してNanoMuseを開く。
 Codexの未ログインとDSHのモデル認証も案内する。`dev secretary dsh` はDSH、
-`dev secretary codex` はCodex CLIを開く。Claude・GitHubログインとZedの起動は行わない。
+`dev secretary codex` はCodex CLIを開く。GitHub の認証は `secretary` ユーザーで確認する。
 `--web` はNanoMuse、`--preview` はSilverBulletのみ。`--no-login` は案内を省略し、
 `--login` は「今後聞かない」を無視して未設定項目を案内する。
 `--zed` / `--mobile` はこのtargetでは未対応。
@@ -50,7 +50,7 @@ Codexの未ログインとDSHのモデル認証も案内する。`dev secretary 
 
 ## ログインの案内
 
-`dev` は、コンテナ内の Claude Code・Codex・GitHub CLI (github.com) のログイン状況を、1行で表示する。
+`dev` でプロジェクトを開くと、`repo` 列の有無を問わず、対象コンテナの GitHub CLI（github.com）の認証を確認する。認証はコンテナ内の利用者に保存され、同じコンテナのプロジェクトで共有される。Zed または DSH を開く通常の開発ターゲットでは、Claude Code・Codex のログイン状況も同時に表示する。
 
 ```
 [dev] Claude Code: 未ログイン  Codex: ログイン済み  GitHub CLI: 未ログイン
@@ -62,7 +62,7 @@ Codexの未ログインとDSHのモデル認証も案内する。`dev secretary 
 | --- | --- |
 | `y` | その場でログインを始める (`claude auth login` / `codex login --device-auth` / `gh auth login --hostname github.com`)。ブラウザのないコンテナでも使える方式 |
 | Enter | 今回はログインせずに進む |
-| `s` | 今後は聞かない (`~/.config/dev/skip-login/<ツール>` を作る) |
+| `s` | 今後は聞かない。GitHub の場合はそのコンテナだけ (`~/.config/dev/skip-login/hosts/<SSH名>/gh`) |
 
 契約していない期間があっても、**ログインしなくても、そのまま先へ進む**。
 
@@ -82,7 +82,7 @@ Codexの未ログインとDSHのモデル認証も案内する。`dev secretary 
 
 続く `gh` の認証方法で **Paste an authentication token** を選び、生成したトークンを入力する。ブラウザでの OAuth 認証は選ばない。トークンは `gh` の入力欄だけに貼り付け、チャットや Git 管理ファイルには保存しない。認証情報は各コンテナで保持する。Fine-grained PAT の権限外の操作は失敗するので、その操作が必要なときに権限を見直す。
 
-`dev` 起動時の `gh auth status` でトークンが無効になっていれば、期限切れ・失効時も再認証を案内する。`y` で作成画面を開き、新しいトークンを登録する。期限切れだけを判別するものではなく、認証確認の失敗をまとめて「未ログインまたは認証無効 (期限切れ等)」と表示する。常時監視やトークンの自動更新は行わない。`s` や `DEV_SKIP_AGENTS="gh"` で確認を省いている場合は案内されない。`s` を解除して案内するには `dev --login web` を使う (`DEV_SKIP_AGENTS`・`DEV_AGENT_CHECK=off` は別途解除)。
+`dev` 起動時の `gh auth status` でトークンが無効になっていれば、期限切れ・失効時も再認証を案内する。`y` で作成画面を開き、新しいトークンを登録する。認証確認の失敗は「未ログインまたは認証無効 (期限切れ等)」と表示する。`s` を選んだコンテナで再度案内を出すには `dev --login web` のように実行する。`DEV_SKIP_AGENTS`・`DEV_AGENT_CHECK=off` は別途解除する。
 
 `gh` が未導入なら「未導入」と表示するので、サーバーの `dotfile_infra` で `./provision/run` を実行する (稼働中の全 `*-dev` が対象。停止中のものは起動後に実行)。
 
