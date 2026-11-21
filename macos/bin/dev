@@ -30,6 +30,7 @@ Usage: dev [options] <target> [project]
   dev os        プロジェクトが複数あれば、番号で選ぶ (1つだけなら、そのまま開く。対話できないときは先頭)
   dev lang      プロジェクトを分けていない target は、そのまま指定する
   dev secretary 秘書の未設定項目を案内し、NanoMuseを開く (Zedなし)
+  dev learn     学習用ワークスペースとDeepSeek Harnessを開く
 
   dev secretary mobile          スマホ用QR
   dev secretary notes           SilverBullet
@@ -122,6 +123,9 @@ fi
 case "$workflow" in
   development|-)
     ;;
+  learn)
+    if [ "$only_mobile" = 0 ]; then want_mobile=0; fi
+    ;;
   secretary)
     if [ "$only_zed" = 1 ]; then
       err "secretaryで--zedは使えません"
@@ -203,9 +207,28 @@ if { [ -n "$repo" ] && [ "$repo" != "-" ]; } || [ "$vcs" = jj ]; then
   "$REPO_ROOT/scripts/project-clone" "$remote_host" "$remote_path" "${repo:--}" "${vcs:-git}"
 fi
 
+if [ "$workflow" = learn ] && { [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; }; then
+  log '学習用コンテナの検索・メモ・NASの案内'
+  cat >&2 <<'EOF'
+  Zedのリモートターミナル、または ssh learn-dev で実行:
+    fd -i キーワード ~/learn/materials       ファイル名
+    rg -in キーワード ~/learn/notes ~/learn/materials  テキスト本文
+    pdfgrep --cache -Hrin キーワード ~/learn/materials  PDF本文とページ番号
+  学習メモは Zed の notes/質問.md に追記。DSH は Web UI の設定でモデルを認証。
+  DSH の PDF 参照リンクから、Mac のブラウザで指定ページを開けます。
+  Synology は smbclient '//NASのホスト名/共有名' -U 'ユーザー名' で接続。
+  教材の取り込みとOCRの手順は docs/learn.md を参照。
+EOF
+  if ssh -o BatchMode=yes "$remote_host" 'curl -fsS --max-time 3 http://127.0.0.1:43180/health' >/dev/null 2>&1; then
+    ensure_tunnel "$remote_host" 43180 43180 "${DEV_WEB_TUNNEL_TTL:-14400}" 43180 >/dev/null || true
+  else
+    err "教材プレビューが起動していません ($remote_host の learn-material.service)"
+  fi
+fi
+
 # ログイン状況の案内とWeb UIは、失敗しても処理を止めない
 # --mobile だけのときは、ログインの案内も省く
-if [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ] && { [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; }; then
+if { [ "$workflow" != learn ] || [ "$force_login" = 1 ]; } && [ "$check_login" = 1 ] && [ "${DEV_AGENT_CHECK:-on}" != off ] && { [ "$want_zed" = 1 ] || [ "$want_web" = 1 ]; }; then
   DEV_FORCE_LOGIN="$force_login" "$REPO_ROOT/scripts/agent-login" "$remote_host" || true
 fi
 if [ "$want_web" = 1 ]; then

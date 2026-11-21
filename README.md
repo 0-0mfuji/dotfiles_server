@@ -30,6 +30,7 @@ dev os    # サーバーが寝ていれば起こし、コンテナを起動し�
 | **Webアプリ開発** (web-dev: igakutteru) を**ゼロから再現する** | [docs/web.md](docs/web.md) |
 | **Flutter開発** (flutter-dev: harmonic、Dart / Turso / Hono) | [docs/flutter.md](docs/flutter.md) |
 | **私用秘書** (NanoMuse + SilverBullet、Gmail / outlook.jp / Plane / Karakeep / TimeTree) | [docs/secretary.md](docs/secretary.md) |
+| **学習** (DeepSeek Harness、PDF 検索、学習メモ、Synology NAS) | [docs/learn.md](docs/learn.md) |
 | `dev` コマンドの使い方、`projects.conf` | [docs/usage.md](docs/usage.md) |
 | AI・ツールを**更新**する (`provision/run --update`, `bump-dsh`) | [docs/environments.md](docs/environments.md) |
 

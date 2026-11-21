@@ -91,26 +91,33 @@ resolve_target() {
 
 # リモートホストのポートへ、SSHトンネルを張る (同じホスト・ポート宛ての生存中のトンネルがあれば再利用する)。
 # 張ったローカルポートを標準出力に出す。失敗したときは何も出さず、終了コード1。
-#   Usage: ensure_tunnel <ssh-host> <remote-port> <first-local-port> <ttl-seconds>
+#   Usage: ensure_tunnel <ssh-host> <remote-port> <first-local-port> <ttl-seconds> [last-local-port]
 #   トンネルはSSH接続なので、開いている間はサーバーの自動Suspendを止める。寿命 (ttl) で自動的に閉じる。
 ensure_tunnel() {
   local host="$1" remote_port="$2" first_port="$3" ttl="$4"
+  local last_port="${5:-$((first_port + 9))}"
+  local bind="" bind_pattern=""
+  if [ "$first_port" = "$last_port" ]; then
+    bind="127.0.0.1:"
+    bind_pattern="127[.]0[.]0[.]1:"
+  fi
   local state_dir="$HOME/.config/dev/tunnels" state sp spid port="" p pid
   mkdir -p "$state_dir"; state="$state_dir/$host-$remote_port"
   if [ -f "$state" ]; then
     read -r sp spid < "$state" || true
-    if [ -n "${spid:-}" ] && ps -p "$spid" -o args= 2>/dev/null | grep -q -- "-L ${sp}:127.0.0.1:${remote_port}.* ${host} "; then
+    if [ -n "${spid:-}" ] && [ "$sp" -ge "$first_port" ] && [ "$sp" -le "$last_port" ] &&
+        ps -p "$spid" -o args= 2>/dev/null | grep -Fq -- "-L ${bind}${sp}:127.0.0.1:${remote_port} ${host} "; then
       echo "$sp"; return 0
     fi
   fi
-  for p in $(seq "$first_port" $((first_port + 9))); do
+  for p in $(seq "$first_port" "$last_port"); do
     if ! nc -z 127.0.0.1 "$p" 2>/dev/null; then port="$p"; break; fi
   done
-  [ -n "$port" ] || { err "空いているローカルポートがありません ($first_port-$((first_port + 9)))"; return 1; }
+  [ -n "$port" ] || { err "空いているローカルポートがありません ($first_port-$last_port)"; return 1; }
   ssh -f -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes \
-      -L "${port}:127.0.0.1:${remote_port}" "$host" "sleep $ttl" </dev/null >/dev/null 2>&1 \
+      -L "${bind}${port}:127.0.0.1:${remote_port}" "$host" "sleep $ttl" </dev/null >/dev/null 2>&1 \
     || { err "SSHトンネルを張れませんでした"; return 1; }
-  pid="$(pgrep -nf "ssh .*-L ${port}:127.0.0.1:${remote_port}.* ${host} " || true)"
+  pid="$(pgrep -nf "ssh .*-L ${bind_pattern}${port}:127[.]0[.]0[.]1:${remote_port} ${host} " || true)"
   echo "$port ${pid:-0}" > "$state"
   echo "$port"
 }
