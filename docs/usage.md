@@ -82,7 +82,9 @@ Codexの未ログインとDSHのモデル認証も案内する。`dev secretary 
 
 続く `gh` の認証方法で **Paste an authentication token** を選び、生成したトークンを入力する。ブラウザでの OAuth 認証は選ばない。トークンは `gh` の入力欄だけに貼り付け、チャットや Git 管理ファイルには保存しない。認証情報は各コンテナで保持する。Fine-grained PAT の権限外の操作は失敗するので、その操作が必要なときに権限を見直す。
 
-`dev` 起動時の `gh auth status` でトークンが無効になっていれば、期限切れ・失効時も再認証を案内する。`y` で作成画面を開き、新しいトークンを登録する。認証確認の失敗は「未ログインまたは認証無効 (期限切れ等)」と表示する。`s` を選んだコンテナで再度案内を出すには `dev --login web` のように実行する。`DEV_SKIP_AGENTS`・`DEV_AGENT_CHECK=off` は別途解除する。
+`dev` 起動時に `gh auth status` がトークンの無効化を報告した場合、以前 `s` を選んでいても再認証を案内する。`y` で作成画面を開き、新しいトークンを登録する。対話できない場合は再認証が必要なことを表示する。未ログイン時に `s` を選んだコンテナで再度案内を出すには `dev --login web` のように実行する。`--no-login`、`DEV_SKIP_AGENTS="gh"`、`DEV_AGENT_CHECK=off` で明示的に確認を省略できる。
+
+Git のリモートが `git@github.com:...` の場合、push は SSH 認証を使う。Mac の SSH エージェントを転送する接続（例 `ssh -A web-dev`）から Git を実行する。
 
 `gh` が未導入なら「未導入」と表示するので、サーバーの `dotfile_infra` で `./provision/run` を実行する (稼働中の全 `*-dev` が対象。停止中のものは起動後に実行)。
 

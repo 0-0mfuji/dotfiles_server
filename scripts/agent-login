@@ -30,12 +30,26 @@ if [ "$scope" = secretary-gh ]; then gh_command='sudo -n -H -u secretary /usr/bi
 label()     { case "$1" in claude) echo "Claude Code" ;; codex) echo "Codex" ;; gh) echo "GitHub CLI" ;; esac; }
 login_cmd() { case "$1" in claude) echo "claude auth login" ;; codex) echo "codex login --device-auth" ;; gh) echo "$gh_command auth login --hostname github.com" ;; esac; }
 
-# yes | no | missing
+# yes | no | invalid | missing | unknown
 remote_status() {
+  local output status
   case "$1" in
     claude) ssh -o BatchMode=yes "$host" 'command -v claude >/dev/null 2>&1 || { echo missing; exit 0; }; claude auth status 2>/dev/null | grep -q "\"loggedIn\": true" && echo yes || echo no' 2>/dev/null ;;
     codex)  ssh -o BatchMode=yes "$host" 'command -v codex >/dev/null 2>&1 || { echo missing; exit 0; }; codex login status >/dev/null 2>&1 && echo yes || echo no' 2>/dev/null ;;
-    gh)     ssh -o BatchMode=yes "$host" "command -v gh >/dev/null 2>&1 || { echo missing; exit 0; }; $gh_command auth status --hostname github.com >/dev/null 2>&1 && echo yes || echo no" 2>/dev/null ;;
+    gh)
+      output="$(ssh -o BatchMode=yes "$host" "command -v gh >/dev/null 2>&1 || exit 127; NO_COLOR=1 $gh_command auth status --hostname github.com 2>&1" 2>/dev/null)"
+      status=$?
+      case "$status" in
+        0) echo yes ;;
+        127) echo missing ;;
+        1|4)
+          case "$output" in
+            *'The token in '*' is invalid.'*|*'Refresh token for '*' was rejected'*) echo invalid ;;
+            *'not logged into'*|*'have not logged in'*|*'To get started with GitHub CLI'*) echo no ;;
+            *) echo unknown ;;
+          esac ;;
+        *) echo unknown ;;
+      esac ;;
   esac
 }
 
@@ -49,6 +63,7 @@ skip_file() {
 
 is_skipped() {
   [[ " ${DEV_SKIP_AGENTS:-} " == *" $1 "* ]] && return 0
+  [ "$1" = gh ] && return 1  # 保存済みトークンの無効化は、案内を省く設定があっても確認する。
   [ "${DEV_FORCE_LOGIN:-0}" = 1 ] && return 1
   [ -e "$(skip_file "$1")" ]
 }
@@ -64,11 +79,17 @@ for t in "${tools[@]}"; do
     yes)     summary+="$(label "$t"): ログイン済み  " ;;
     no)
       if [ "$t" = gh ]; then
-        summary+="$(label "$t"): 未ログインまたは認証無効 (期限切れ等)  "
+        summary+="$(label "$t"): 未ログイン  "
+        if [ "${DEV_FORCE_LOGIN:-0}" != 1 ] && [ -e "$(skip_file "$t")" ]; then continue; fi
       else
         summary+="$(label "$t"): 未ログイン  "
       fi
       pending+=("$t")
+      ;;
+    invalid)
+      summary+="$(label "$t"): トークンが無効 (期限切れ・失効等)  "
+      pending+=(gh)
+      gh_invalid=1
       ;;
     missing) summary+="$(label "$t"): 未導入  " ;;
     *)       summary+="$(label "$t"): 確認できません  " ;;
@@ -77,14 +98,18 @@ done
 log "$host: $summary"
 
 [ "${#pending[@]}" -gt 0 ] || exit 0
+if [ "${gh_invalid:-0}" = 1 ]; then
+  log "GitHub CLI の再認証が必要です。Mac のターミナルで dev <target> を開くと再認証できます。"
+fi
 # 対話できない環境では案内せず、状況の表示だけで進む
 { [ -t 0 ] && [ -t 1 ]; } || exit 0
 
 for t in "${pending[@]}"; do
-  if [ "$t" = gh ]; then
-    log "トークンが期限切れ・失効済みの場合も、y でトークン作成と再認証へ進めます。"
+  if [ "$t" = gh ] && [ "${gh_invalid:-0}" = 1 ]; then
+    printf '[dev] GitHub CLI を再認証しますか? [y=今する / Enter=今回は進む] ' >&2
+  else
+    printf '[dev] %s にログインしますか? [y=今する / Enter=今回は進む / s=今後聞かない] ' "$(label "$t")" >&2
   fi
-  printf '[dev] %s にログインしますか? [y=今する / Enter=今回は進む / s=今後聞かない] ' "$(label "$t")" >&2
   read -r ans < /dev/tty || ans=""
   case "$ans" in
     y|Y)
@@ -102,9 +127,15 @@ for t in "${pending[@]}"; do
         fi
       fi
       ssh -t "$host" "$(login_cmd "$t")" || true
-      if [ "$(remote_status "$t")" = yes ]; then log "$(label "$t"): ログインしました"; else log "$(label "$t"): ログインできていません (このまま進みます)"; fi
+      if [ "$(remote_status "$t")" = yes ]; then
+        log "$(label "$t"): ログインしました"
+        if [ "$t" = gh ]; then rm -f "$(skip_file "$t")"; fi
+      else
+        log "$(label "$t"): ログインできていません (このまま進みます)"
+      fi
       ;;
     s|S)
+      if [ "$t" = gh ] && [ "${gh_invalid:-0}" = 1 ]; then continue; fi
       file="$(skip_file "$t")"
       mkdir -p "$(dirname "$file")"; : > "$file"
       log "$(label "$t"): 今後聞きません (再開: dev --login <target> または rm $file)"
